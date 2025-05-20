@@ -1,0 +1,18 @@
+# backend/docker-compose.yml
+version: '3.8'
+services:
+  db:
+    image: postgres:15 # Môžeš použiť novšiu verziu, ak je dostupná
+    container_name: tutor_postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: tutoruser
+      POSTGRES_PASSWORD: tutorpassword
+      POSTGRES_DB: tutordb
+    ports:
+      - "5432:5432" # Mapuje port kontajnera na hostiteľský systém
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

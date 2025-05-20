@@ -1,0 +1,9 @@
+# .gitignore (v personalizovany_tutor/)
+/backend/.venv/
+/backend/.env
+/backend/__pycache__/
+/backend/alembic/versions/
+/frontend/node_modules/
+/frontend/.next/
+/frontend/out/
+.DS_Store

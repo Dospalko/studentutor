@@ -7,3 +7,15 @@
 /frontend/.next/
 /frontend/out/
 .DS_Store
+/backend/app/__pycache__/
+/backend/app/routers/__pycache__/
+/backend/app/models/__pycache__/
+/backend/app/utils/__pycache__/
+/backend/app/database/__pycache__/
+/backend/app/config/__pycache__/
+/backend/app/middleware/__pycache__/
+/backend/app/exceptions/__pycache__/
+/backend/app/auth/__pycache__/
+/backend/app/tests/__pycache__/
+/backend/app/tests/data/__pycache__/
+/backend/app/tests/utils/__pycache__/

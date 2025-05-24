@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.env
+*.db
+*.sqlite3
+alembic.ini
+alembic/
+local_data/ # Ak máš nejaký lokálny adresár s dátami

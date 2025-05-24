@@ -43,8 +43,12 @@ export default function RegisterPage() {
       setPassword('');
       setFullName('');
       // router.push('/login');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: Error | unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
     }
   };
 

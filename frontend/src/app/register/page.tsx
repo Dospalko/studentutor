@@ -32,11 +32,13 @@ export default function RegisterPage() {
         throw new Error(data.detail || 'Registration failed');
       }
 
-      setSuccess('Registration successful! You can now log in.');
-      // Optional: redirect to login page or show login form
-      // router.push('/login');
-    } catch (err: any) {
-      setError(err.message);
+      setSuccess('Registration successful! You will be redirected to login.');
+      // Redirect to login page after 2 seconds
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
   };
 

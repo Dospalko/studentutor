@@ -4,8 +4,7 @@
 import { useState, FormEvent, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AuthContext } from '@/context/AuthContext'; // Vytvoríme ho v ďalšom kroku
-
+import { AuthContext } from '@/context/AuthContext';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function LoginPage() {
@@ -52,8 +51,8 @@ export default function LoginPage() {
       } else {
         setError('Login failed: No token received.');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     }
   };
 

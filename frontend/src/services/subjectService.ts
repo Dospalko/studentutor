@@ -1,5 +1,4 @@
-// frontend/src/services/subjectService.ts
-import { TopicStatus, UserDifficulty } from './topicService'; // Importneme neskôr, alebo definujeme tu dočasne
+import { TopicStatus, UserDifficulty } from '@/types/study'; 
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 

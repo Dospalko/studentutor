@@ -1,0 +1,15 @@
+// frontend/src/types/study.ts
+export enum TopicStatus {
+    NOT_STARTED = "not_started",
+    IN_PROGRESS = "in_progress",
+    COMPLETED = "completed",
+    NEEDS_REVIEW = "needs_review",
+  }
+  
+  export enum UserDifficulty {
+    VERY_EASY = "very_easy",
+    EASY = "easy",
+    MEDIUM = "medium",
+    HARD = "hard",
+    VERY_HARD = "very_hard",
+  }

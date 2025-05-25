@@ -1,11 +1,19 @@
-// frontend/src/app/dashboard/page.tsx
 "use client";
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useContext, useEffect, useState, FormEvent } from 'react';
 import { AuthContext } from '@/context/AuthContext';
 import { getSubjects, createSubject, Subject, SubjectCreate, deleteSubject } from '@/services/subjectService';
-import Link from 'next/link'; // Pre odkazy na detail predmetu
+import Link from 'next/link';
+
+// Shadcn/ui imports
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Trash2, FolderPlus, ExternalLink, Info, BookCopy, AlertCircle } from "lucide-react"; // Ikony z lucide-react
 
 function DashboardContent() {
   const authContext = useContext(AuthContext);
@@ -13,7 +21,6 @@ function DashboardContent() {
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Stavy pre formulár na pridanie predmetu
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectDescription, setNewSubjectDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,15 +53,15 @@ function DashboardContent() {
     setError(null);
     const subjectData: SubjectCreate = {
       name: newSubjectName.trim(),
-      description: newSubjectDescription.trim() || null,
+      description: newSubjectDescription.trim() || undefined,
     };
 
     try {
       const created = await createSubject(subjectData, authContext.token);
-      setSubjects(prevSubjects => [created, ...prevSubjects]); // Pridaj na začiatok zoznamu
-      setNewSubjectName(''); // Vyčisti formulár
+      setSubjects(prevSubjects => [created, ...prevSubjects].sort((a,b) => a.name.localeCompare(b.name))); // Zoradenie
+      setNewSubjectName('');
       setNewSubjectDescription('');
-    } catch (err: unknown) {
+    } catch (err: Error | unknown) {
       console.error("Error creating subject:", err);
       setError(err instanceof Error ? err.message : 'Nepodarilo sa vytvoriť predmet.');
     } finally {
@@ -63,103 +70,160 @@ function DashboardContent() {
   };
 
   const handleDeleteSubject = async (subjectId: number) => {
-    if (!authContext?.token || !confirm('Naozaj chcete zmazať tento predmet a všetky jeho témy?')) {
+    if (!authContext?.token || !confirm('Naozaj chcete zmazať tento predmet a všetky jeho témy? Táto akcia je nenávratná.')) {
         return;
     }
+    setError(null);
     try {
         await deleteSubject(subjectId, authContext.token);
         setSubjects(prevSubjects => prevSubjects.filter(s => s.id !== subjectId));
-    } catch (err: unknown) {
-      console.error("Error deleting subject:", err);
-      setError(err instanceof Error ? err.message : 'Nepodarilo sa zmazať predmet.');
+    } catch (err: Error | unknown) {
+        console.error("Error deleting subject:", err);
+        setError(err instanceof Error ? err.message : 'Nepodarilo sa zmazať predmet.');
     }
   };
 
-
   if (!authContext || !authContext.user) {
-    return <p className="text-center mt-10">Načítavam dáta používateľa...</p>;
+    return (
+        <div className="flex flex-col justify-center items-center min-h-[calc(100vh-8rem)] p-4">
+            <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-primary"></div>
+            <p className="mt-4 text-muted-foreground">Načítavam dáta používateľa...</p>
+        </div>
+    );
   }
   const { user } = authContext;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">
-        Vitaj na Dashboarde, {user.full_name || user.email}!
-      </h1>
+    <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <Card className="mb-8 bg-gradient-to-br from-primary via-blue-600 to-indigo-700 text-primary-foreground shadow-xl border-none">
+        <CardHeader>
+          <CardTitle className="text-3xl md:text-4xl font-extrabold tracking-tight">
+            Vitaj späť, {user.full_name?.split(' ')[0] || user.email}!
+          </CardTitle>
+          <CardDescription className="mt-2 text-blue-100 text-lg">
+            Pripravený napredovať vo svojom štúdiu? Spravuj svoje predmety a sleduj svoj pokrok.
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
-      {/* Formulár na pridanie nového predmetu */}
-      <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Pridať Nový Predmet</h2>
-        {error && <p className="text-red-500 bg-red-100 p-3 rounded mb-4">{error}</p>}
-        <form onSubmit={handleCreateSubject}>
-          <div className="mb-4">
-            <label htmlFor="subjectName" className="block text-sm font-medium text-gray-700 mb-1">
-              Názov predmetu <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="subjectName"
-              value={newSubjectName}
-              onChange={(e) => setNewSubjectName(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
-          </div>
-          <div className="mb-4">
-            <label htmlFor="subjectDescription" className="block text-sm font-medium text-gray-700 mb-1">
-              Popis (voliteľné)
-            </label>
-            <textarea
-              id="subjectDescription"
-              value={newSubjectDescription}
-              onChange={(e) => setNewSubjectDescription(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isSubmitting || !newSubjectName.trim()}
-            className="w-full sm:w-auto bg-indigo-600 text-white py-2 px-6 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
-          >
-            {isSubmitting ? 'Pridávam...' : 'Pridať predmet'}
-          </button>
-        </form>
-      </div>
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Nastala Chyba</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      {/* Zoznam predmetov */}
-      <div className="bg-white shadow-lg rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Tvoje Predmety</h2>
-        {isLoadingSubjects ? (
-          <p>Načítavam predmety...</p>
-        ) : subjects.length > 0 ? (
-          <ul className="space-y-4">
-            {subjects.map((subject) => (
-              <li key={subject.id} className="border border-gray-200 p-4 rounded-md hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <Link href={`/subjects/${subject.id}`} className="text-lg font-medium text-indigo-600 hover:text-indigo-800">
-                        {subject.name}
-                    </Link>
-                    {subject.description && <p className="text-sm text-gray-600 mt-1">{subject.description}</p>}
-                    <p className="text-xs text-gray-500 mt-1">Počet tém: {subject.topics?.length || 0}</p>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteSubject(subject.id)}
-                    className="text-red-500 hover:text-red-700 text-sm font-medium p-2 rounded hover:bg-red-50"
-                    title="Zmazať predmet"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12.56 0c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
-                  </button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
+          <Card className="sticky top-24"> {/* sticky pre formulár na boku */}
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <FolderPlus className="mr-2 h-5 w-5 text-primary" />
+                Pridať Nový Predmet
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateSubject} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="subjectName">Názov predmetu <span className="text-destructive">*</span></Label>
+                  <Input
+                    type="text"
+                    id="subjectName"
+                    value={newSubjectName}
+                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    required
+                    placeholder="Napr. Dejiny Umenia"
+                  />
                 </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-600">Zatiaľ nemáš pridané žiadne predmety. Začni pridaním nového!</p>
-        )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="subjectDescription">Stručný popis</Label>
+                  <Textarea
+                    id="subjectDescription"
+                    value={newSubjectDescription}
+                    onChange={(e) => setNewSubjectDescription(e.target.value)}
+                    placeholder="Čo tento predmet zahŕňa?"
+                    rows={4}
+                  />
+                </div>
+                <Button type="submit" disabled={isSubmitting || !newSubjectName.trim()} className="w-full">
+                  {isSubmitting ? 'Pridávam...' : 'Pridať predmet'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center">
+                <BookCopy className="mr-2 h-5 w-5 text-primary" />
+                Tvoje Študijné Predmety
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingSubjects ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-28 bg-muted rounded-lg animate-pulse p-4 space-y-2">
+                        <div className="h-5 w-3/4 bg-muted-foreground/20 rounded"></div>
+                        <div className="h-3 w-1/2 bg-muted-foreground/20 rounded"></div>
+                        <div className="h-3 w-1/4 bg-muted-foreground/20 rounded mt-2"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : subjects.length > 0 ? (
+                <ul className="space-y-4">
+                  {subjects.map((subject) => (
+                    <li key={subject.id}>
+                      <Card className="hover:shadow-lg transition-shadow duration-200">
+                        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                            <div className="flex-grow pr-4">
+                                <CardTitle className="text-lg font-semibold">
+                                    <Link href={`/subjects/${subject.id}`} className="hover:underline text-primary decoration-primary/50 hover:decoration-primary">
+                                        {subject.name}
+                                    </Link>
+                                </CardTitle>
+                                {subject.description && (
+                                    <CardDescription className="text-sm line-clamp-2 mt-1">
+                                        {subject.description}
+                                    </CardDescription>
+                                )}
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteSubject(subject.id)} className="text-destructive hover:bg-destructive/10 flex-shrink-0">
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Zmazať predmet</span>
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="pt-0 pb-3">
+                            <div className="flex items-center text-xs text-muted-foreground">
+                                <Info className="mr-1.5 h-3.5 w-3.5" />
+                                Počet tém: <span className="font-semibold text-foreground ml-1">{subject.topics?.length || 0}</span>
+                            </div>
+                        </CardContent>
+                        <CardFooter>
+                            <Link href={`/subjects/${subject.id}`} className="w-full">
+                                <Button variant="outline" className="w-full text-sm">
+                                    <ExternalLink className="mr-2 h-4 w-4" />
+                                    Zobraziť Detail a Témy
+                                </Button>
+                            </Link>
+                        </CardFooter>
+                      </Card>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                  <BookCopy className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-1">Zatiaľ žiadne predmety.</p>
+                  <p className="text-sm">Začni pridaním nového predmetu pomocou formulára.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -54,9 +54,9 @@ function DashboardContent() {
       setSubjects(prevSubjects => [created, ...prevSubjects]); // Pridaj na začiatok zoznamu
       setNewSubjectName(''); // Vyčisti formulár
       setNewSubjectDescription('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error creating subject:", err);
-      setError(err.message || 'Nepodarilo sa vytvoriť predmet.');
+      setError(err instanceof Error ? err.message : 'Nepodarilo sa vytvoriť predmet.');
     } finally {
       setIsSubmitting(false);
     }
@@ -69,9 +69,9 @@ function DashboardContent() {
     try {
         await deleteSubject(subjectId, authContext.token);
         setSubjects(prevSubjects => prevSubjects.filter(s => s.id !== subjectId));
-    } catch (err: any) {
-        console.error("Error deleting subject:", err);
-        setError(err.message || 'Nepodarilo sa zmazať predmet.');
+    } catch (err: unknown) {
+      console.error("Error deleting subject:", err);
+      setError(err instanceof Error ? err.message : 'Nepodarilo sa zmazať predmet.');
     }
   };
 

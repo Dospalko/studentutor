@@ -3,31 +3,26 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine
 from . import models
-from .routers import users, auth # Neskôr pridáme ďalšie routre
+from .routers import users, auth, subjects, topics # Pridaj subjects a topics
 
-# Vytvorenie tabuliek v databáze (ak neexistujú)
-# V produkcii by si mal použiť Alembic migrácie
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Personalizovaný Tutor API")
 
-# Nastavenie CORS (Cross-Origin Resource Sharing)
-# Umožní frontendu komunikovať s backendom z inej domény/portu
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], # Adresa tvojho Next.js frontendu
+    allow_origins=["http://localhost:3000", "http://localhost"],
     allow_credentials=True,
-    allow_methods=["*"], # Umožní všetky HTTP metódy
-    allow_headers=["*"], # Umožní všetky hlavičky
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, prefix="/users", tags=["users"])
-# app.include_router(study_plans.router, prefix="/study-plans", tags=["study_plans"])
+app.include_router(subjects.router) # Prefix a tagy sú už definované v routeri
+app.include_router(topics.router)   # Prefix a tagy sú už definované v routeri
 
 
 @app.get("/")
 async def root():
     return {"message": "Vitaj v API Personalizovaného Tutora!"}
-
-# Sem budeme postupne pridávať ďalšie routre pre predmety, plány atď.

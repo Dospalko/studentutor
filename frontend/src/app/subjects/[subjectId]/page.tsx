@@ -1,7 +1,7 @@
 // frontend/src/app/subjects/[subjectId]/page.tsx
 "use client";
 
-import { useContext, useEffect, useState, FormEvent } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation'; // useParams pre získanie subjectId z URL
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthContext } from '@/context/AuthContext';

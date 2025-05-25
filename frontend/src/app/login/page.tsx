@@ -1,4 +1,4 @@
-// frontend/src/app/login/page.tsx (zmeny sú hlavne v triedach)
+// frontend/src/app/login/page.tsx
 "use client";
 
 import { useState, FormEvent, useContext } from 'react';
@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AuthContext } from '@/context/AuthContext';
 import { LockClosedIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+
+// Shadcn/ui imports
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Pre chybové hlášky
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -17,12 +24,17 @@ export default function LoginPage() {
   const authContext = useContext(AuthContext);
 
   if (!authContext) {
-    throw new Error("AuthContext not found.");
+    // Zváž, či tu nevyhodiť chybu alebo zobraziť fallback UI,
+    // ak AuthProvider nie je dostupný.
+    // Pre produkciu by to mal AuthProvider obaliť celú aplikáciu.
+    console.error("AuthContext not found in LoginPage");
+    // Môžeš tu zobraziť nejaký loading/error state, alebo nechať tak,
+    // ak si si istý, že AuthProvider je vždy prítomný.
+    return <div>Loading authentication context...</div>;
   }
-  const { login, isLoading: authIsLoading } = authContext; // Pridané authIsLoading
+  const { login, isLoading: authIsLoading } = authContext;
 
   const handleSubmit = async (e: FormEvent) => {
-    // ... (logika zostáva rovnaká) ...
     e.preventDefault();
     setError(null);
 
@@ -47,7 +59,7 @@ export default function LoginPage() {
 
       if (data.access_token) {
         login(data.access_token);
-        router.push('/dashboard'); // Presmeruj na dashboard po úspešnom prihlásení
+        router.push('/dashboard');
       } else {
         setError('Login failed: No token received.');
       }
@@ -57,73 +69,67 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center bg-slate-50 p-4"> {/* Upravená výška kvôli navbaru */}
-      <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all hover:scale-105 duration-300">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600">Vitajte Späť!</h1>
-          <p className="text-slate-500 mt-2">Prihláste sa a pokračujte v učení.</p>
-        </div>
-
-        {error && <p className="text-red-600 bg-red-100 p-3 rounded-md mb-6 text-sm text-center">{error}</p>}
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
-              Emailová adresa
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <EnvelopeIcon className="h-5 w-5 text-slate-400" />
+    <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-bold text-primary">Vitajte Späť!</CardTitle> {/* Používame text-primary */}
+          <CardDescription className="mt-2">Prihláste sa a pokračujte v učení.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              {/* <AlertCircle className="h-4 w-4" />  Môžeš pridať ikonu pre Alert */}
+              <AlertTitle>Chyba pri prihlásení</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email">Emailová adresa</Label>
+              <div className="relative">
+                <EnvelopeIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="vas@email.com"
+                  autoComplete="email"
+                  className="pl-10" // Padding pre ikonu
+                />
               </div>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="vas@email.com"
-                autoComplete="email"
-              />
             </div>
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
-              Heslo
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <LockClosedIcon className="h-5 w-5 text-slate-400" />
+            <div className="space-y-2">
+              <Label htmlFor="password">Heslo</Label>
+              <div className="relative">
+                <LockClosedIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="password"
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="pl-10" // Padding pre ikonu
+                />
               </div>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="••••••••"
-                autoComplete="current-password"
-              />
             </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={authIsLoading} // Disable tlačidlo počas AuthContext isLoading
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-400"
-          >
-            {authIsLoading ? 'Prihlasujem...' : 'Prihlásiť sa'}
-          </button>
-        </form>
-        <p className="mt-8 text-center text-sm text-slate-600">
-          Ešte nemáte účet?{' '}
-          <Link href="/register" className="font-medium text-blue-600 hover:text-blue-700 hover:underline">
-            Zaregistrujte sa tu
-          </Link>
-        </p>
-      </div>
+            <Button type="submit" disabled={authIsLoading} className="w-full">
+              {authIsLoading ? 'Prihlasujem...' : 'Prihlásiť sa'}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            Ešte nemáte účet?{' '}
+            <Link href="/register" className="font-medium text-primary hover:underline">
+              Zaregistrujte sa tu
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

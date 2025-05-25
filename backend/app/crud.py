@@ -66,25 +66,32 @@ def delete_subject(db: Session, subject_id: int, owner_id: int) -> Optional[mode
     db.commit()
     return db_subject
 
-
 # --- Topic CRUD ---
-def get_topic(db: Session, topic_id: int, owner_id: int): # Overuje vlastníctvo cez predmet
-    return db.query(models.Topic).join(models.Subject).filter(models.Topic.id == topic_id, models.Subject.owner_id == owner_id).first()
+def get_topic(db: Session, topic_id: int, owner_id: int) -> Optional[models.Topic]:
+    # Overuje vlastníctvo cez predmet, ku ktorému téma patrí
+    return db.query(models.Topic).join(models.Subject).filter(
+        models.Topic.id == topic_id,
+        models.Subject.owner_id == owner_id
+    ).first()
 
 def get_topics_by_subject(db: Session, subject_id: int, owner_id: int, skip: int = 0, limit: int = 1000) -> List[models.Topic]:
-    # Uisti sa, že predmet patrí používateľovi
-    subject = get_subject(db, subject_id, owner_id)
+    # Najprv over, či predmet patrí používateľovi
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id, models.Subject.owner_id == owner_id).first()
     if not subject:
-        return [] # Alebo hodiť chybu, ak predmet neexistuje / nepatrí userovi
+        return [] # Alebo hodiť chybu/vrátiť None, aby router mohol vrátiť 404
     return db.query(models.Topic).filter(models.Topic.subject_id == subject_id).offset(skip).limit(limit).all()
 
 def create_topic(db: Session, topic: schemas.TopicCreate, subject_id: int, owner_id: int) -> Optional[models.Topic]:
-    # Uisti sa, že predmet patrí používateľovi
-    db_subject = get_subject(db, subject_id, owner_id)
+    db_subject = db.query(models.Subject).filter(models.Subject.id == subject_id, models.Subject.owner_id == owner_id).first()
     if not db_subject:
         return None # Predmet neexistuje alebo nepatrí aktuálnemu používateľovi
     
-    db_topic = models.Topic(**topic.model_dump(), subject_id=subject_id)
+    # Zaisti, že status má defaultnú hodnotu, ak nie je poskytnutý a schéma to povoľuje
+    topic_data = topic.model_dump()
+    if 'status' not in topic_data or topic_data['status'] is None: # Ak schéma povoľuje None
+        topic_data['status'] = models.TopicStatus.NOT_STARTED
+
+    db_topic = models.Topic(**topic_data, subject_id=subject_id)
     db.add(db_topic)
     db.commit()
     db.refresh(db_topic)
@@ -95,7 +102,7 @@ def update_topic(db: Session, topic_id: int, topic_update: schemas.TopicUpdate, 
     if not db_topic:
         return None
     
-    update_data = topic_update.model_dump(exclude_unset=True)
+    update_data = topic_update.model_dump(exclude_unset=True) # exclude_unset je dôležité pre PATCH-like správanie
     for key, value in update_data.items():
         setattr(db_topic, key, value)
     db.add(db_topic)
@@ -107,6 +114,8 @@ def delete_topic(db: Session, topic_id: int, owner_id: int) -> Optional[models.T
     db_topic = get_topic(db, topic_id, owner_id) # get_topic už overuje vlastníctvo
     if not db_topic:
         return None
+    
+    deleted_topic_copy = schemas.Topic.model_validate(db_topic) # Vytvor kópiu pre návratovú hodnotu
     db.delete(db_topic)
     db.commit()
-    return db_topic
+    return deleted_topic_copy # Vráť dáta zmazanej témy

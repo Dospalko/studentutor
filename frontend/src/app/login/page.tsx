@@ -63,8 +63,8 @@ export default function LoginPage() {
       } else {
         setError('Login failed: No token received.');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     }
   };
 

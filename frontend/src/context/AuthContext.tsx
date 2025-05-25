@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Na začiatku načítavame
 
-  const fetchUser = async (currentToken?: string) => {
+  const fetchUser = React.useCallback(async (currentToken?: string) => {
     const tokenToUse = currentToken || token;
     if (!tokenToUse) {
       setUser(null);
@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]); // Add token as a dependency
 
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } else {
       setIsLoading(false); // Žiadny token, nenačítavame
     }
-  }, []); // Spustí sa len raz pri mountnutí komponentu
+  }, [fetchUser]); // fetchUser is now stable due to useCallback
 
   const login = (newToken: string) => {
     localStorage.setItem('authToken', newToken);

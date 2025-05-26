@@ -1,12 +1,12 @@
 // frontend/src/components/subjects/StudyCalendarView.tsx
 "use client";
 
-import { Calendar, dateFnsLocalizer, EventProps, Views } from 'react-big-calendar';
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import startOfWeek from 'date-fns/startOfWeek';
-import getDay from 'date-fns/getDay';
-import enUS from 'date-fns/locale/en-US'; // Alebo skSVK ak máš lokalizačný súbor
+import { Calendar, dateFnsLocalizer, EventProps, Views, DateLocalizer } from 'react-big-calendar';
+import { format } from 'date-fns/format';
+import { parse } from 'date-fns/parse';
+import { startOfWeek } from 'date-fns/startOfWeek';
+import { getDay } from 'date-fns/getDay';
+import { enUS } from 'date-fns/locale/en-US'; // Alebo skSVK ak máš lokalizačný súbor
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 import { StudyBlock, StudyPlan } from '@/services/studyPlanService'; // Importuj tvoje typy
@@ -18,12 +18,13 @@ const locales = {
   // 'sk-SK': require('date-fns/locale/sk') // Ak chceš slovenčinu, nainštaluj a importuj
 };
 
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: (date) => startOfWeek(date, { weekStartsOn: 1 }), // Pondelok ako prvý deň týždňa
-  getDay,
-  locales,
+
+const localizer: DateLocalizer = dateFnsLocalizer({
+    format,
+    parse,
+    startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 1 }), // Pondelok ako prvý deň týždňa
+    getDay,
+    locales,
 });
 
 // Definícia typu pre udalosti v kalendári
@@ -56,7 +57,7 @@ export default function StudyCalendarView({
   // Transformácia StudyBlockov na udalosti pre kalendár
   const events: CalendarEvent[] = studyPlan.study_blocks.map(block => {
     const startDate = block.scheduled_at ? new Date(block.scheduled_at) : new Date(); // Fallback na dnešok
-    let endDate = new Date(startDate);
+    const endDate = new Date(startDate);
 
     if (block.duration_minutes) {
       endDate.setMinutes(startDate.getMinutes() + block.duration_minutes);
@@ -95,7 +96,7 @@ export default function StudyCalendarView({
 
   return (
     <div className="h-[600px] p-1 bg-card shadow rounded-md"> {/* Výška je dôležitá pre kalendár */}
-      <Calendar
+      <Calendar<CalendarEvent>
         localizer={localizer}
         events={events}
         startAccessor="start"
@@ -109,11 +110,16 @@ export default function StudyCalendarView({
         // draggableAccessor={() => true} // Vždy povoľ drag
         // onEventDrop={onEventDrop} // Handler pre drag & drop
         components={{
-            event: EventComponent, // Použitie vlastného komponentu pre udalosť
+            event: EventComponent as React.ComponentType<EventProps<CalendarEvent>>, // Použitie vlastného komponentu pre udalosť
         }}
-        eventPropGetter={(event, start, end, isSelected) => {
+        eventPropGetter={(
+            event: CalendarEvent, 
+        ): {
+            className?: string;
+            style?: React.CSSProperties;
+        } => {
             // Tu môžeš dynamicky meniť štýl udalostí na základe ich vlastností
-            let newStyle: React.CSSProperties = {
+            const newStyle: React.CSSProperties = {
                 // backgroundColor: "lightgrey",
                 // color: 'black',
                 // borderRadius: "0px",

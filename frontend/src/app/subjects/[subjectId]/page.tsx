@@ -8,10 +8,9 @@ import { AuthContext } from '@/context/AuthContext'; // Uisti sa, že cesta je s
 import { getSubjectById, Subject } from '@/services/subjectService'; // Uisti sa, že cesta je správna
 import { Topic, TopicCreate, TopicUpdate, createTopicForSubject, updateTopic, deleteTopic } from '@/services/topicService'; // Uisti sa, že cesta je správna
 import { 
-    StudyPlan, StudyPlanCreate, StudyBlockUpdate, // Pridaj StudyBlock
+    StudyPlan, StudyPlanCreate, StudyBlockUpdate, StudyBlock, // Pridaj StudyBlock
     generateOrGetStudyPlan, getActiveStudyPlanForSubject, updateStudyBlock, GeneratePlanOptions // Pridaj GeneratePlanOptions
-} from '@/services/studyPlanService'; // Uisti sa, že cesta je správna
-import { TopicStatus, StudyBlockStatus } from '@/types/study'; // Uisti sa, že cesta je správna
+} from '@/services/studyPlanService'; // Uisti sa, že cesta jeimport { TopicStatus, StudyBlockStatus } from '@/types/study'; // Uisti sa, že cesta je správna
 
 // Importuj sub-komponenty
 import TopicList from '@/components/subjects/TopicList'; // Uisti sa, že cesta je správna
@@ -23,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft, AlertCircle, Loader2, FileText } from "lucide-react";
+import StudyCalendarView from '@/components/subjects/StudyCalendarView';
+import { Switch } from "@/components/ui/switch"; // Pre prepínač pohľadu
 
 
 function SubjectDetailPageContent() {
@@ -46,7 +47,7 @@ function SubjectDetailPageContent() {
   const [studyPlan, setStudyPlan] = useState<StudyPlan | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
-
+  const [showCalendarView, setShowCalendarView] = useState(true); // Defaultne zobraziť kalendár
   useEffect(() => {
     if (authContext?.token && subjectIdParam) {
       const subjectId = parseInt(subjectIdParam);
@@ -93,7 +94,15 @@ function SubjectDetailPageContent() {
     setEditingTopic(topic);
     setIsTopicDialogOpen(true);
   };
-
+  // Handler pre kliknutie na udalosť v kalendári (BONUS)
+  const handleCalendarEventSelect = (calendarEvent: any) => { // `any` pre jednoduchosť, typ by mal byť CalendarEvent
+    const block = calendarEvent.resource as StudyBlock;
+    console.log("Selected block:", block);
+    // Tu môžeš otvoriť dialóg s detailmi bloku alebo možnosťami
+    // Napríklad, ak máš dialóg na úpravu bloku:
+    // openEditStudyBlockDialog(block);
+    alert(`Vybraný blok: ${block.topic.name}\nStatus: ${formatEnumValue(block.status)}\nDátum: ${new Date(calendarEvent.start).toLocaleString()}`);
+  };
   const handleTopicFormSubmitCallback = async (data: TopicCreate | TopicUpdate, editingTopicId?: number) => {
     if (!authContext?.token || !subject) return;
     const subjectId = subject.id;

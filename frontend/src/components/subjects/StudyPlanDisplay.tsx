@@ -1,18 +1,16 @@
 // frontend/src/components/subjects/StudyPlanDisplay.tsx
 "use client";
 
-import { StudyPlan } from '@/services/studyPlanService'; // Uisti sa, že tieto typy sú správne
-import { StudyBlockStatus, StudyPlanStatus } from '@/types/study'; // A tieto enumy
+import { StudyPlan } from '@/services/studyPlanService';
+import { StudyBlockStatus, StudyPlanStatus } from '@/types/study'; // Pridaj TopicStatus
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
-    CalendarDays, CheckCircle2, XCircle, Zap, Hourglass, ListChecks, BrainCog, Loader2, // Nové ikony pre budúce funkcie
+    CalendarDays, CheckCircle2, XCircle, Zap, Hourglass, ListChecks, BrainCog, Loader2, RefreshCcw, AlertCircle // Uisti sa, že AlertCircle je tu
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
 
-// Pomocná funkcia na formátovanie enum hodnôt
 const formatEnumValue = (value: string | undefined | null): string => {
   if (!value) return '';
   return value.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
@@ -23,15 +21,9 @@ interface StudyPlanDisplayProps {
   studyPlan: StudyPlan | null;
   isLoadingPlan: boolean;
   planError: string | null;
-  // Počet tém, ktoré ešte nie sú 'COMPLETED' a nie sú v aktuálnom pláne (ak plán existuje)
-  // Alebo jednoducho počet nekompletných tém v predmete, ak je to jednoduchšie získať
   actionableTopicsCount: number;
-  onGenerateOrUpdatePlan: (options?: { forceRegenerate?: boolean }) => Promise<void>; // Rozšírené pre force_regenerate
+  onGenerateOrUpdatePlan: (options?: { forceRegenerate?: boolean }) => Promise<void>;
   onUpdateBlockStatus: (blockId: number, status: StudyBlockStatus) => Promise<void>;
-  // Placeholdery pre budúce funkcie
-  // onEditBlockDetails?: (blockId: number) => void;
-  // onManuallyAddBlock?: () => void;
-  // onArchivePlan?: (planId: number) => void;
 }
 
 export default function StudyPlanDisplay({
@@ -39,7 +31,7 @@ export default function StudyPlanDisplay({
   studyPlan,
   isLoadingPlan,
   planError,
-  actionableTopicsCount, // Počet tém, ktoré sa dajú pridať/naplánovať
+  actionableTopicsCount,
   onGenerateOrUpdatePlan,
   onUpdateBlockStatus,
 }: StudyPlanDisplayProps) {
@@ -53,13 +45,20 @@ export default function StudyPlanDisplay({
 
   const mainButtonText = () => {
     if (!hasActivePlan) return "Vygenerovať Nový Plán";
-    if (actionableTopicsCount > 0) return "Aktualizovať Plán (pridať nové témy)";
-    return "Plán je aktuálny"; // Alebo "Zobraziť Plán"
+    // Ak plán existuje, ale nemá bloky a sú témy na naplánovanie -> Aktualizovať (čo je vlastne prvé generovanie blokov)
+    if (hasActivePlan && !planHasBlocks && actionableTopicsCount > 0) return "Vygenerovať Bloky do Plánu";
+    // Ak plán existuje, má bloky a sú nové témy na naplánovanie -> Aktualizovať
+    if (hasActivePlan && planHasBlocks && actionableTopicsCount > 0) return "Aktualizovať Plán (pridať nové témy)";
+    // Ak plán existuje, má bloky a nie sú nové témy -> Plán aktuálny
+    if (hasActivePlan && planHasBlocks && actionableTopicsCount === 0) return "Plán je aktuálny";
+    // Ak plán existuje, je prázdny a nie sú témy -> Nič na generovanie
+    if (hasActivePlan && !planHasBlocks && actionableTopicsCount === 0) return "Pridajte témy na generovanie";
+    
+    return "Spracovať Plán"; // Fallback
   };
 
-  const isMainButtonDisabled = isLoadingPlan || (!hasActivePlan && actionableTopicsCount === 0);
+  const isMainButtonDisabled = isLoadingPlan || (actionableTopicsCount === 0 && !planHasBlocks && !hasActivePlan) || (hasActivePlan && planHasBlocks && actionableTopicsCount === 0);
 
-  // --- Renderovacie funkcie pre lepšiu čitateľnosť ---
 
   const renderLoadingState = () => (
     <div className="flex justify-center items-center py-8">
@@ -82,17 +81,21 @@ export default function StudyPlanDisplay({
         <ListChecks className="mr-2 h-6 w-6 text-primary" />
         <CardTitle className="text-2xl">Študijný Plán</CardTitle>
       </div>
-      {subjectName && !isLoadingPlan && ( // Tlačidlo sa zobrazí, len ak nie je loading a máme subjectName
-        <div className="flex gap-2 w-full sm:w-auto justify-end">
-            {/* TODO: Placeholder pre tlačidlo na archiváciu plánu
-            {hasActivePlan && (
-                <Button variant="outline" size="sm" onClick={() => alert('Archivovať plán - TODO')} disabled={isLoadingPlan}>
-                    <Archive className="mr-2 h-4 w-4" /> Archivovať
+      {subjectName && !isLoadingPlan && (
+        <div className="flex gap-2 w-full sm:w-auto justify-end flex-wrap">
+            {hasActivePlan && planHasBlocks && ( // Možnosť pregenerovať odznova, ak už plán existuje
+                 <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => onGenerateOrUpdatePlan({ forceRegenerate: true })} 
+                    disabled={isLoadingPlan || actionableTopicsCount === 0}
+                    title="Vytvorí úplne nový plán a starý archivuje"
+                 >
+                    <RefreshCcw className="mr-2 h-4 w-4" /> Začať odznova
                 </Button>
             )}
-            */}
             <Button 
-                onClick={() => onGenerateOrUpdatePlan({ forceRegenerate: !hasActivePlan })} // Ak neexistuje, je to ako forceRegenerate
+                onClick={() => onGenerateOrUpdatePlan({ forceRegenerate: !hasActivePlan })} // Ak nemá aktívny plán, je to ako forceRegenerate
                 disabled={isMainButtonDisabled}
                 className="flex-grow sm:flex-grow-0"
             >
@@ -104,7 +107,7 @@ export default function StudyPlanDisplay({
     </CardHeader>
   );
 
-  const renderNoPlanState = () => (
+  const renderNoPlanState = () => ( // Zobrazí sa, ak studyPlan je null
     <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-lg">
       <ListChecks className="w-16 h-16 mx-auto mb-4 opacity-50" />
       <p className="text-lg font-medium mb-1">Študijný plán ešte nebol vygenerovaný.</p>
@@ -117,19 +120,14 @@ export default function StudyPlanDisplay({
     </div>
   );
 
-  const renderEmptyPlanState = () => (
+  const renderEmptyPlanState = () => ( // Zobrazí sa, ak studyPlan existuje, ale nemá bloky
      <div className="text-center py-8 text-muted-foreground">
-        <p>Študijný plán je prázdny.</p>
+        <p className="text-lg font-semibold">Študijný plán je momentálne prázdny.</p>
         <p className="mt-1 text-sm">
             {actionableTopicsCount > 0
-            ? "Máte nové témy na naplánovanie. Kliknite na 'Aktualizovať Plán' vyššie."
+            ? "Máte nové témy na naplánovanie. Kliknite na 'Aktualizovať Plán' alebo 'Vygenerovať Bloky' vyššie."
             : "Všetky témy sú buď naplánované alebo dokončené. Pridajte nové témy do predmetu, ak chcete rozšíriť plán."}
         </p>
-        {/* TODO: Placeholder pre tlačidlo na manuálne pridanie bloku
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => alert('Manuálne pridať blok - TODO')}>
-            <PlusSquare className="mr-2 h-4 w-4" /> Pridať študijný blok manuálne
-        </Button>
-        */}
     </div>
   );
   
@@ -142,29 +140,16 @@ export default function StudyPlanDisplay({
           <Badge variant="outline" className="ml-2">{formatEnumValue(studyPlan!.status)}</Badge>
         </p>
       </div>
-      
-      {/* Tlačidlo na pregenerovanie, ak by sme chceli inú logiku ako hlavné tlačidlo */}
-      {/* <div className="mb-4 text-right">
-            <Button onClick={() => onGenerateOrUpdatePlan({ forceRegenerate: true })} disabled={isLoadingPlan} variant="outline" size="sm">
-                <RefreshCcw className="mr-2 h-4 w-4" /> Prepočítať celý plán
-            </Button>
-        </div> */}
-
       <div className="space-y-3">
         {sortedStudyBlocks.map(block => (
           <Card key={block.id} className={`transition-all duration-150
             ${block.status === StudyBlockStatus.COMPLETED ? 'border-l-4 border-green-500 bg-green-50 dark:bg-green-900/20' : ''}
-            ${block.status === StudyBlockStatus.SKIPPED ? 'border-l-4 border-red-500 bg-red-50 dark:bg-red-900/20 opacity-70' : ''}
+            ${block.status === StudyBlockStatus.SKIPPED ? 'border-l-4 border-red-500 bg-red-50 dark:bg-red-900/20 opacity-80' : ''}
             ${block.status === StudyBlockStatus.IN_PROGRESS ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}
           `}>
             <CardHeader className="p-3 sm:p-4 pb-2">
               <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-base sm:text-md flex-grow">{block.topic.name}</CardTitle>
-                  {/* TODO: Placeholder pre tlačidlo na editáciu bloku
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => alert(`Editovať blok ${block.id} - TODO`)}>
-                    <Edit className="h-3.5 w-3.5" />
-                  </Button>
-                  */}
                   <Badge variant={
                       block.status === StudyBlockStatus.COMPLETED ? "default" :
                       block.status === StudyBlockStatus.IN_PROGRESS ? "secondary" :

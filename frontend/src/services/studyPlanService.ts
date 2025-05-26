@@ -1,25 +1,25 @@
 // frontend/src/services/studyPlanService.ts
-import { Topic } from './topicService'; // Alebo priamo z types
-import { StudyPlanStatus, StudyBlockStatus } from '@/types/study'; // Predpokladáme, že enumy pridáš/máš v types/study.ts
+import { Topic } from './topicService';
+import { StudyPlanStatus, StudyBlockStatus } from '@/types/study';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// --- Typy pre StudyPlan a StudyBlock (mali by zodpovedať backend schémam) ---
+// --- Typy (zostávajú rovnaké alebo upravené podľa backendu) ---
 export interface StudyBlock {
   id: number;
-  scheduled_at?: string | null; // Dátum ako string z API
+  scheduled_at?: string | null;
   duration_minutes?: number | null;
   status: StudyBlockStatus;
   notes?: string | null;
   study_plan_id: number;
   topic_id: number;
-  topic: Topic; // Detail témy
+  topic: Topic;
 }
 
 export interface StudyPlan {
   id: number;
   name?: string | null;
-  created_at: string; // Dátum ako string z API
+  created_at: string;
   status: StudyPlanStatus;
   user_id: number;
   subject_id: number;
@@ -33,29 +33,48 @@ export interface StudyPlanCreate {
 }
 
 export interface StudyBlockUpdate {
-  scheduled_at?: string | null; // Dátum ako string
+  scheduled_at?: string | null;
   duration_minutes?: number | null;
   status?: StudyBlockStatus;
   notes?: string | null;
 }
 
-
-// Funkcia na vygenerovanie/získanie študijného plánu pre predmet
-export const generateOrGetStudyPlan = async (planData: StudyPlanCreate, token: string): Promise<StudyPlan> => {
-  const response = await fetch(`${API_BASE_URL}/study-plans/`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(planData),
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to generate or get study plan' }));
-    throw new Error(errorData.detail || 'Failed to generate or get study plan');
+export interface GeneratePlanOptions { // ZMENA na camelCase
+    forceRegenerate?: boolean;
   }
-  return response.json();
-};
+  
+  export const generateOrGetStudyPlan = async (
+    planData: StudyPlanCreate,
+    token: string,
+    options?: GeneratePlanOptions
+  ): Promise<StudyPlan> => {
+    let apiUrl = `${API_BASE_URL}/study-plans/`;
+    
+    const queryParams = new URLSearchParams();
+    // Konverzia na snake_case pre API query parameter, ak je to potrebné
+    if (options?.forceRegenerate) { // Použi camelCase z options
+      queryParams.append('force_regenerate', 'true'); // API očakáva snake_case
+    }
+    
+    if (queryParams.toString()) {
+        apiUrl += `?${queryParams.toString()}`;
+    }
+  
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(planData),
+    });
+  
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Failed to generate or get study plan' }));
+      throw new Error(errorData.detail || 'Failed to generate or get study plan');
+    }
+    return response.json();
+  };
 
 // Funkcia na načítanie aktívneho študijného plánu pre predmet
 export const getActiveStudyPlanForSubject = async (subjectId: number, token: string): Promise<StudyPlan | null> => {
@@ -67,16 +86,13 @@ export const getActiveStudyPlanForSubject = async (subjectId: number, token: str
     },
   });
   if (!response.ok) {
-    if (response.status === 404) return null; // Ak plán neexistuje, backend môže vrátiť 404
+    if (response.status === 404) return null;
     const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch study plan' }));
     throw new Error(errorData.detail || 'Failed to fetch study plan');
   }
-  // Ak backend vráti prázdne telo pre 200 OK ak plán neexistuje (čo by nemal pri Optional[Schema] response_model),
-  // potom treba ošetriť aj to. Predpokladáme, že buď vráti plán alebo 404.
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 };
-
 
 // Funkcia na aktualizáciu študijného bloku
 export const updateStudyBlock = async (blockId: number, blockData: StudyBlockUpdate, token: string): Promise<StudyBlock> => {

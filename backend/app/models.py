@@ -47,3 +47,52 @@ class Topic(Base):
     status = Column(SQLAlchemyEnum(TopicStatus, name="topic_status_enum"), default=TopicStatus.NOT_STARTED, nullable=False) # Pridaný name
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     subject = relationship("Subject", back_populates="topics")
+
+
+    # Enum pre status študijného plánu
+class StudyPlanStatus(str, enum.Enum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+    COMPLETED = "completed"
+
+# Enum pre status študijného bloku
+class StudyBlockStatus(str, enum.Enum):
+    PLANNED = "planned"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+    IN_PROGRESS = "in_progress"
+
+
+class StudyPlan(Base):
+    __tablename__ = "study_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True, nullable=True) # Napr. "Môj plán pre Matematiku I"
+    created_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(SQLAlchemyEnum(StudyPlanStatus, name="study_plan_status_enum"), default=StudyPlanStatus.ACTIVE)
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+
+    owner = relationship("User") # Jednosmerný vzťah, ak nepotrebujeme user.study_plans
+    subject = relationship("Subject") # Jednosmerný vzťah
+
+    study_blocks = relationship("StudyBlock", back_populates="study_plan", cascade="all, delete-orphan")
+
+class StudyBlock(Base):
+    __tablename__ = "study_blocks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Odporúčaný dátum a čas (môžeme začať len s dátumom, DateTime to pokryje)
+    scheduled_at = Column(DateTime, nullable=True)
+    # Odporúčaná dĺžka štúdia (ukladáme ako Interval, alebo Integer v minútach)
+    # Pre jednoduchosť začneme s Integer (minúty)
+    duration_minutes = Column(Integer, nullable=True) # Napr. 60 minút
+    status = Column(SQLAlchemyEnum(StudyBlockStatus, name="study_block_status_enum"), default=StudyBlockStatus.PLANNED)
+    notes = Column(Text, nullable=True) # Poznámky používateľa k tomuto bloku
+
+    study_plan_id = Column(Integer, ForeignKey("study_plans.id"), nullable=False)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
+
+    study_plan = relationship("StudyPlan", back_populates="study_blocks")
+    topic = relationship("Topic") # Jednosmerný vzťah

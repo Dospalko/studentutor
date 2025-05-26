@@ -13,3 +13,15 @@ export enum TopicStatus {
     HARD = "hard",
     VERY_HARD = "very_hard",
   }
+  export enum StudyPlanStatus {
+    ACTIVE = "active",
+    ARCHIVED = "archived",
+    COMPLETED = "completed",
+}
+
+export enum StudyBlockStatus {
+    PLANNED = "planned",
+    COMPLETED = "completed",
+    SKIPPED = "skipped",
+    IN_PROGRESS = "in_progress",
+}

@@ -1,8 +1,10 @@
 # backend/app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, Enum as SQLAlchemyEnum
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, Enum as SQLAlchemyEnum, DateTime, Interval # Pridaj DateTime, Interval
 from sqlalchemy.orm import relationship
 from .database import Base
 import enum
+from datetime import datetime # Pre default hodnoty
+
 
 # Enum pre stav témy
 class TopicStatus(str, enum.Enum):

@@ -1,5 +1,5 @@
 # backend/app/crud.py
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func # Pre agregácie, ak by boli potrebné
 from . import models, schemas
 from passlib.context import CryptContext
@@ -122,21 +122,47 @@ def delete_topic(db: Session, topic_id: int, owner_id: int) -> Optional[models.T
     db.commit()
     return deleted_topic_copy # Vráť dáta zmazanej témy
 
-
 # --- StudyPlan CRUD ---
 
 def get_study_plan(db: Session, study_plan_id: int, owner_id: int) -> Optional[models.StudyPlan]:
-    return db.query(models.StudyPlan).filter(
+    plan = db.query(models.StudyPlan).filter(
         models.StudyPlan.id == study_plan_id,
         models.StudyPlan.user_id == owner_id
-    ).options(joinedload(models.StudyPlan.study_blocks).joinedload(models.StudyBlock.topic)).first() # Načítaj aj bloky a ich témy
+    ).options(
+        selectinload(models.StudyPlan.study_blocks).selectinload(models.StudyBlock.topic), # Preferuj selectinload pre *-to-many
+        joinedload(models.StudyPlan.subject) # Subject je one-to-one, joinedload je OK
+    ).first()
+
+    # Debug výpis
+    if plan:
+        print(f"[DEBUG CRUD get_study_plan] Plan ID: {plan.id}")
+        for i, block in enumerate(plan.study_blocks):
+            print(f"  Block {i} ID: {block.id}, Topic ID: {block.topic_id}, Loaded Topic: {'EXISTS' if block.topic else 'NONE'}")
+            if not block.topic:
+                 # Tu by si mohol hodiť chybu alebo sa pokúsiť načítať tému manuálne,
+                 # ale s ondelete="CASCADE" by to nemalo nastať.
+                 print(f"    CRITICAL: Block {block.id} has a topic_id {block.topic_id} but topic object is None!")
+    return plan
 
 def get_active_study_plan_for_subject(db: Session, subject_id: int, owner_id: int) -> Optional[models.StudyPlan]:
-    return db.query(models.StudyPlan).filter(
+    plan = db.query(models.StudyPlan).filter(
         models.StudyPlan.subject_id == subject_id,
         models.StudyPlan.user_id == owner_id,
         models.StudyPlan.status == models.StudyPlanStatus.ACTIVE
-    ).options(joinedload(models.StudyPlan.study_blocks).joinedload(models.StudyBlock.topic)).first()
+    ).options(
+        selectinload(models.StudyPlan.study_blocks).selectinload(models.StudyBlock.topic),
+        joinedload(models.StudyPlan.subject)
+    ).first()
+
+    # Debug výpis
+    if plan:
+        print(f"[DEBUG CRUD get_active_study_plan_for_subject] Plan ID: {plan.id} for Subject ID: {subject_id}")
+        for i, block in enumerate(plan.study_blocks):
+            print(f"  Block {i} ID: {block.id}, Topic ID: {block.topic_id}, Loaded Topic: {'EXISTS' if block.topic else 'NONE'}")
+            if not block.topic:
+                 print(f"    CRITICAL: Block {block.id} has a topic_id {block.topic_id} but topic object is None!")
+    return plan
+
 
 def create_study_plan_with_blocks(
     db: Session,
@@ -144,24 +170,20 @@ def create_study_plan_with_blocks(
     owner_id: int,
     name: Optional[str] = None
 ) -> Optional[models.StudyPlan]:
-    # 1. Over, či predmet existuje a patrí používateľovi
     subject = db.query(models.Subject).filter(
         models.Subject.id == subject_id,
         models.Subject.owner_id == owner_id
-    ).options(joinedload(models.Subject.topics)).first() # Načítaj aj témy predmetu
+    ).options(selectinload(models.Subject.topics)).first() # Použi selectinload pre topics
 
     if not subject:
-        return None # Predmet neexistuje alebo nepatrí používateľovi
+        print(f"[DEBUG CRUD create_study_plan] Subject {subject_id} not found for owner {owner_id}")
+        return None
 
-    # 2. Skontroluj, či už neexistuje aktívny plán pre tento predmet a používateľa
     existing_plan = get_active_study_plan_for_subject(db, subject_id, owner_id)
     if existing_plan:
-        # Rozhodnutie: Vrátiť existujúci? Archivovať starý a vytvoriť nový? Alebo chyba?
-        # Pre teraz vrátime existujúci, aby sme predišli duplicite aktívnych plánov.
-        # Môžeš implementovať logiku archivácie starého plánu tu, ak je to potrebné.
-        return existing_plan
+        print(f"[DEBUG CRUD create_study_plan] Active plan already exists for subject {subject_id}, returning existing.")
+        return existing_plan # Vráti existujúci, už by mal mať načítané témy správne
 
-    # 3. Vytvor nový StudyPlan
     plan_name = name or f"Študijný plán pre {subject.name}"
     db_study_plan = models.StudyPlan(
         name=plan_name,
@@ -170,87 +192,86 @@ def create_study_plan_with_blocks(
         status=models.StudyPlanStatus.ACTIVE
     )
     db.add(db_study_plan)
-    # db.commit() # Commitneme až po pridaní blokov, alebo commitneme plán a potom bloky
-    # db.refresh(db_study_plan) # Potrebujeme ID plánu pre bloky
-
-    # 4. Vygeneruj StudyBlocky pre témy predmetu (napr. tie, čo nie sú COMPLETED)
-    study_blocks_to_create = []
-    # Jednoduché rozloženie: jedna téma denne, začínajúc od zajtra
+    # Ešte necommitujeme, potrebujeme ID pre bloky, alebo commitneme a refreshneme
+    # Lepšie je priradiť ORM objekty priamo a commitnúť naraz
+    
+    study_blocks_to_create_orm = []
     current_scheduled_date = datetime.utcnow().date() + timedelta(days=1)
-    
-    # Získaj témy, ktoré ešte nie sú dokončené
     topics_to_plan = [topic for topic in subject.topics if topic.status != models.TopicStatus.COMPLETED]
-    
-    # Ak nie sú žiadne témy na plánovanie, stále vytvor prázdny plán
+
+    print(f"[DEBUG CRUD create_study_plan] Found {len(topics_to_plan)} topics to plan for subject {subject.name}")
+
     if not topics_to_plan:
-        db.commit()
+        db.commit() # Commitni aspoň prázdny plán
         db.refresh(db_study_plan)
         return db_study_plan # Vráti plán bez blokov
 
-    for topic in topics_to_plan:
-        # Pre každú tému vytvor StudyBlock
+    for topic_orm_obj in topics_to_plan: # Iteruj cez ORM objekty tém
         block_data = schemas.StudyBlockCreate(
-            topic_id=topic.id,
-            scheduled_at=datetime.combine(current_scheduled_date, datetime.min.time()), # Začiatok dňa
-            duration_minutes=60, # Defaultná dĺžka, môžeme prispôsobiť
+            topic_id=topic_orm_obj.id, # Toto je stále potrebné pre schému, ak ju používaš
+            scheduled_at=datetime.combine(current_scheduled_date, datetime.min.time()),
+            duration_minutes=60,
             status=models.StudyBlockStatus.PLANNED
         )
         db_block = models.StudyBlock(
-            **block_data.model_dump(exclude={'topic_id'}), # topic_id je už vo vzťahu
-            topic_id=topic.id, # Alebo takto explicitne
-            study_plan=db_study_plan # Pripoj k plánu
+            scheduled_at=block_data.scheduled_at,
+            duration_minutes=block_data.duration_minutes,
+            status=block_data.status,
+            notes=block_data.notes,
+            topic_id=topic_orm_obj.id, # Nastav topic_id
+            study_plan=db_study_plan  # Nastav vzťah k plánu
+            # SQLAlchemy by malo po commite a pri ďalšom query automaticky načítať `topic` ORM objekt
+            # na základe `topic_id` a vzťahu `topic = relationship("Topic")`
         )
-        study_blocks_to_create.append(db_block)
-        
-        # Posuň dátum pre ďalší blok (napr. každý deň jedna téma)
+        # Ak chceme mať `topic` objekt hneď k dispozícii na `db_block` PRED commitom (nie je nutné pre tento use case):
+        # db_block.topic = topic_orm_obj
+        study_blocks_to_create_orm.append(db_block)
         current_scheduled_date += timedelta(days=1)
 
-    db.add_all(study_blocks_to_create)
+    db.add_all(study_blocks_to_create_orm)
     db.commit()
-    db.refresh(db_study_plan) # Načítaj aj novo vytvorené bloky do session plánu
-    
-    # Ešte raz načítaj plán s blokmi a témami pre správne zobrazenie v schéme
-    return get_study_plan(db, db_study_plan.id, owner_id)
+    db.refresh(db_study_plan) # Načítaj plán, jeho study_blocks by mali byť teraz v session
+
+    # Načítaj finálny plán s explicitným eager loadingom všetkého potrebného pre schému
+    final_plan = get_study_plan(db, db_study_plan.id, owner_id)
+    print(f"[DEBUG CRUD create_study_plan] Final plan created with ID: {final_plan.id if final_plan else 'None'}")
+    return final_plan
 
 
 def update_study_plan(db: Session, study_plan_id: int, plan_update: schemas.StudyPlanUpdate, owner_id: int) -> Optional[models.StudyPlan]:
-    db_plan = get_study_plan(db, study_plan_id, owner_id) # get_study_plan už načíta bloky
+    db_plan = get_study_plan(db, study_plan_id, owner_id)
     if not db_plan:
         return None
-    
     update_data = plan_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_plan, key, value)
-    
     db.add(db_plan)
     db.commit()
     db.refresh(db_plan)
-    return db_plan
+    # Znovu načítaj s eager loadingom pre konzistentnú odpoveď
+    return get_study_plan(db, db_plan.id, owner_id)
+
 
 # --- StudyBlock CRUD ---
 def get_study_block(db: Session, study_block_id: int, owner_id: int) -> Optional[models.StudyBlock]:
-    # Over, či blok patrí plánu, ktorý patrí používateľovi
     return db.query(models.StudyBlock).join(models.StudyPlan).filter(
         models.StudyBlock.id == study_block_id,
         models.StudyPlan.user_id == owner_id
-    ).options(joinedload(models.StudyBlock.topic)).first()
+    ).options(joinedload(models.StudyBlock.topic)).first() # joinedload je tu OK, lebo je to many-to-one
 
 def update_study_block(db: Session, study_block_id: int, block_update: schemas.StudyBlockUpdate, owner_id: int) -> Optional[models.StudyBlock]:
     db_block = get_study_block(db, study_block_id, owner_id)
     if not db_block:
         return None
-        
     update_data = block_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_block, key, value)
-
-    # Ak sa blok označí ako dokončený, môžeme aktualizovať aj status príslušnej témy
     if 'status' in update_data and update_data['status'] == models.StudyBlockStatus.COMPLETED:
         if db_block.topic and db_block.topic.status != models.TopicStatus.COMPLETED:
             db_block.topic.status = models.TopicStatus.COMPLETED
-            db.add(db_block.topic) # Pridaj zmenenú tému do session
-
+            db.add(db_block.topic)
     db.add(db_block)
     db.commit()
     db.refresh(db_block)
-    return db_block
+    # Znovu načítaj s eager loadingom pre konzistentnú odpoveď
+    return get_study_block(db, db_block.id, owner_id)

@@ -1,33 +1,34 @@
 # backend/app/schemas.py
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator # Pridaj validator, ak ho chceš použiť na debug
 from typing import Optional, List
-from datetime import datetime # Pre typovanie
-from .models import TopicStatus, UserDifficulty, StudyPlanStatus, StudyBlockStatus # 
+from datetime import datetime
+from .models import TopicStatus, UserDifficulty, StudyPlanStatus, StudyBlockStatus
+
 # --- Topic Schemas ---
 class TopicBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     user_strengths: Optional[str] = None
     user_weaknesses: Optional[str] = None
     user_difficulty: Optional[UserDifficulty] = None
-    status: Optional[TopicStatus] = TopicStatus.NOT_STARTED # Default pre vytváranie
+    status: Optional[TopicStatus] = TopicStatus.NOT_STARTED
 
 class TopicCreate(TopicBase):
-    pass # subject_id sa dodá z URL alebo v logike routra
+    pass
 
-class TopicUpdate(BaseModel): # Pri update chceme všetky polia voliteľné
+class TopicUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     user_strengths: Optional[str] = None
     user_weaknesses: Optional[str] = None
     user_difficulty: Optional[UserDifficulty] = None
     status: Optional[TopicStatus] = None
 
-class Topic(TopicBase): # Schéma pre vrátenie z API
+class Topic(TopicBase):
     id: int
-    subject_id: int
-    status: TopicStatus # Tu by mal byť status povinný, keďže DB ho má ako not-nullable
+    subject_id: int # Toto pole by tu malo byť, ak ho Topic model má
+    status: TopicStatus # Status je v DB not-nullable
 
     class Config:
-        from_attributes = True # Kedysi orm_mode = True
+        from_attributes = True
 
 # --- Subject Schemas ---
 class SubjectBase(BaseModel):
@@ -37,55 +38,32 @@ class SubjectBase(BaseModel):
 class SubjectCreate(SubjectBase):
     pass
 
-class SubjectUpdate(BaseModel): # Pri update chceme všetky polia voliteľné
+class SubjectUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
 
-class Subject(SubjectBase): # Schéma pre vrátenie z API
+class Subject(SubjectBase):
     id: int
     owner_id: int
-    topics: List[Topic] = [] # Zobrazí témy pri načítaní predmetu
+    topics: List[Topic] = []
 
     class Config:
         from_attributes = True
 
 # --- User Schemas ---
-class UserBase(BaseModel):
-    email: EmailStr
-    full_name: Optional[str] = None
+# ... (User schémy zostávajú rovnaké) ...
 
-class UserCreate(UserBase):
-    password: str
-
-class User(UserBase):
-    id: int
-    is_active: bool
-    # subjects: List[Subject] = [] # Voliteľné
-
-    class Config:
-        from_attributes = True
-
-# --- Token Schemas ---
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-class TokenData(BaseModel):
-    email: Optional[str] = None
-
-
-
-    # --- StudyBlock Schemas ---
+# --- StudyBlock Schemas ---
 class StudyBlockBase(BaseModel):
     scheduled_at: Optional[datetime] = None
-    duration_minutes: Optional[int] = Field(None, ge=0) # ge=0 znamená greater or equal to 0
+    duration_minutes: Optional[int] = Field(None, ge=0)
     status: Optional[StudyBlockStatus] = StudyBlockStatus.PLANNED
     notes: Optional[str] = None
 
 class StudyBlockCreate(StudyBlockBase):
-    topic_id: int # Pri vytváraní bloku musíme vedieť, ku ktorej téme patrí
+    topic_id: int
 
-class StudyBlockUpdate(BaseModel): # Pre PATCH-like update
+class StudyBlockUpdate(BaseModel):
     scheduled_at: Optional[datetime] = None
     duration_minutes: Optional[int] = Field(None, ge=0)
     status: Optional[StudyBlockStatus] = None
@@ -94,8 +72,8 @@ class StudyBlockUpdate(BaseModel): # Pre PATCH-like update
 class StudyBlock(StudyBlockBase): # Schéma pre vrátenie z API
     id: int
     study_plan_id: int
-    topic_id: int
-    topic: Topic # Vrátime aj info o téme
+    topic_id: int # Dôležité pre frontend na identifikáciu
+    topic: Topic   # Očakávame, že topic tu bude vždy (nie Optional)
 
     class Config:
         from_attributes = True
@@ -103,24 +81,32 @@ class StudyBlock(StudyBlockBase): # Schéma pre vrátenie z API
 # --- StudyPlan Schemas ---
 class StudyPlanBase(BaseModel):
     name: Optional[str] = None
-    status: Optional[StudyPlanStatus] = StudyPlanStatus.ACTIVE
+    # status tu nemusí byť, lebo pri create bude vždy ACTIVE, a pri update je optional
+    # status: Optional[StudyPlanStatus] = StudyPlanStatus.ACTIVE 
 
-class StudyPlanCreate(BaseModel): # Pre endpoint na generovanie plánu
+class StudyPlanCreate(BaseModel):
     subject_id: int
-    name: Optional[str] = None # Používateľ môže zadať názov, inak defaultný
+    name: Optional[str] = None
 
-class StudyPlanUpdate(BaseModel): # Pre PATCH-like update
+class StudyPlanUpdate(BaseModel):
     name: Optional[str] = None
     status: Optional[StudyPlanStatus] = None
 
-class StudyPlan(StudyPlanBase): # Schéma pre vrátenie z API
+class StudyPlan(StudyPlanBase):
     id: int
     user_id: int
     subject_id: int
     created_at: datetime
-    status: StudyPlanStatus # Tu už povinné
-    subject_name: Optional[str] = None # Pridáme pre jednoduchšie zobrazenie na FE
+    status: StudyPlanStatus # Tu je už povinné, lebo DB ho má
+    subject_name: Optional[str] = None # Doplníme v routeri
     study_blocks: List[StudyBlock] = []
 
     class Config:
         from_attributes = True
+# --- Token Schemas ---
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None

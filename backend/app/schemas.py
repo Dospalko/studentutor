@@ -1,8 +1,8 @@
 # backend/app/schemas.py
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
-from .models import TopicStatus, UserDifficulty # Importuj enumy z models.py
-
+from datetime import datetime # Pre typovanie
+from .models import TopicStatus, UserDifficulty, StudyPlanStatus, StudyBlockStatus # 
 # --- Topic Schemas ---
 class TopicBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
@@ -72,3 +72,55 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+
+
+    # --- StudyBlock Schemas ---
+class StudyBlockBase(BaseModel):
+    scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = Field(None, ge=0) # ge=0 znamená greater or equal to 0
+    status: Optional[StudyBlockStatus] = StudyBlockStatus.PLANNED
+    notes: Optional[str] = None
+
+class StudyBlockCreate(StudyBlockBase):
+    topic_id: int # Pri vytváraní bloku musíme vedieť, ku ktorej téme patrí
+
+class StudyBlockUpdate(BaseModel): # Pre PATCH-like update
+    scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = Field(None, ge=0)
+    status: Optional[StudyBlockStatus] = None
+    notes: Optional[str] = None
+
+class StudyBlock(StudyBlockBase): # Schéma pre vrátenie z API
+    id: int
+    study_plan_id: int
+    topic_id: int
+    topic: Topic # Vrátime aj info o téme
+
+    class Config:
+        from_attributes = True
+
+# --- StudyPlan Schemas ---
+class StudyPlanBase(BaseModel):
+    name: Optional[str] = None
+    status: Optional[StudyPlanStatus] = StudyPlanStatus.ACTIVE
+
+class StudyPlanCreate(BaseModel): # Pre endpoint na generovanie plánu
+    subject_id: int
+    name: Optional[str] = None # Používateľ môže zadať názov, inak defaultný
+
+class StudyPlanUpdate(BaseModel): # Pre PATCH-like update
+    name: Optional[str] = None
+    status: Optional[StudyPlanStatus] = None
+
+class StudyPlan(StudyPlanBase): # Schéma pre vrátenie z API
+    id: int
+    user_id: int
+    subject_id: int
+    created_at: datetime
+    status: StudyPlanStatus # Tu už povinné
+    subject_name: Optional[str] = None # Pridáme pre jednoduchšie zobrazenie na FE
+    study_blocks: List[StudyBlock] = []
+
+    class Config:
+        from_attributes = True

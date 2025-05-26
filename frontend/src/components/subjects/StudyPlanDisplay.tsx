@@ -1,8 +1,8 @@
 // frontend/src/components/subjects/StudyPlanDisplay.tsx
 "use client";
 
-import { StudyPlan, StudyBlock } from '@/services/studyPlanService';
-import { StudyBlockStatus, StudyPlanStatus } from '@/types/study';
+import { StudyPlan } from '@/services/studyPlanService';
+import { StudyBlockStatus  } from '@/types/study';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,22 +105,22 @@ export default function StudyPlanDisplay({
                     {block.notes && <CardContent className="px-3 sm:px-4 pb-2 pt-0 text-xs italic text-muted-foreground">{block.notes}</CardContent>}
                     <CardFooter className="flex flex-wrap justify-end gap-2 px-3 sm:px-4 pt-1 pb-2 sm:pb-3">
                       {block.status !== StudyBlockStatus.COMPLETED && (
-                        <Button variant="ghost" size="xs" className="text-green-600 hover:bg-green-100 hover:text-green-700" onClick={() => onUpdateBlockStatus(block.id, StudyBlockStatus.COMPLETED)}>
+                        <Button variant="ghost" size="sm" className="text-green-600 hover:bg-green-100 hover:text-green-700" onClick={() => onUpdateBlockStatus(block.id, StudyBlockStatus.COMPLETED)}>
                           <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Dokončené
                         </Button>
                       )}
                       {block.status !== StudyBlockStatus.IN_PROGRESS && block.status !== StudyBlockStatus.COMPLETED && (
-                         <Button variant="ghost" size="xs" className="text-blue-600 hover:bg-blue-100 hover:text-blue-700" onClick={() => onUpdateBlockStatus(block.id, StudyBlockStatus.IN_PROGRESS)}>
+                         <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-100 hover:text-blue-700" onClick={() => onUpdateBlockStatus(block.id, StudyBlockStatus.IN_PROGRESS)}>
                            <Zap className="mr-1 h-3.5 w-3.5" /> Začať
                          </Button>
                       )}
                       {block.status !== StudyBlockStatus.SKIPPED && block.status !== StudyBlockStatus.COMPLETED && (
-                        <Button variant="ghost" size="xs" className="text-red-600 hover:bg-red-100 hover:text-red-700" onClick={() => onUpdateBlockStatus(block.id, StudyBlockStatus.SKIPPED)}>
+                        <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-100 hover:text-red-700" onClick={() => onUpdateBlockStatus(block.id, StudyBlockStatus.SKIPPED)}>
                           <XCircle className="mr-1 h-3.5 w-3.5" /> Preskočiť
                         </Button>
                       )}
                        {block.status === StudyBlockStatus.COMPLETED && (
-                         <Button variant="ghost" size="xs" className="text-muted-foreground hover:bg-gray-100 hover:text-gray-700" onClick={() => onUpdateBlockStatus(block.id, StudyBlockStatus.PLANNED)}>
+                         <Button variant="ghost" size="sm" className="text-muted-foreground hover:bg-gray-100 hover:text-gray-700" onClick={() => onUpdateBlockStatus(block.id, StudyBlockStatus.PLANNED)}>
                            <Hourglass className="mr-1 h-3.5 w-3.5" /> Znova plánovať
                          </Button>
                       )}

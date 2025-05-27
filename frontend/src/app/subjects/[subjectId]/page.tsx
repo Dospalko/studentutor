@@ -23,7 +23,7 @@ import {
 // Import sub-komponentov
 import TopicList from '@/components/subjects/TopicList';
 import TopicFormDialog from '@/components/subjects/TopicFormDialog';
-import StudyCalendarView, { CalendarEvent } from '@/components/subjects/StudyCalendarView'; // Pridaj CalendarEvent, ak ho StudyCalendarView exportuje
+import StudyCalendarView from '@/components/subjects/StudyCalendarView'; // Pridaj CalendarEvent, ak ho StudyCalendarView exportuje
 import StudyBlockDetailDialog from '@/components/subjects/StudyBlockDetailDialog'; // <<<< NOVÝ IMPORT
 
 // Shadcn/ui imports

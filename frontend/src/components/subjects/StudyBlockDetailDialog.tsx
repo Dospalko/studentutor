@@ -10,26 +10,23 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator"; // Pre vizuálne oddelenie
+import { Separator } from "@/components/ui/separator";
 import { 
-    Calendar, CheckCircle2, Hourglass, Loader2, Zap, XCircle, // Pridaj XCircle ak budeš mať "Preskočiť"
-    BookOpen // Nové ikony pre lepšiu vizualizáciu
+    Calendar, CheckCircle2, Hourglass, Loader2, Zap, XCircle,
+    BookOpen, Info 
 } from 'lucide-react';
 
-// Pomocná funkcia na formátovanie enum hodnôt (zostáva rovnaká)
 const formatEnumValue = (value: string | undefined | null): string => {
   if (!value) return '';
   return value.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 };
 
-// Funkcia na získanie farby pre Badge podľa statusu
 const getStatusBadgeVariant = (status: StudyBlockStatus): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-        case StudyBlockStatus.COMPLETED: return "default"; // Často zelená v shadcn
-        case StudyBlockStatus.IN_PROGRESS: return "secondary"; // Často modrá alebo neutrálna
-        case StudyBlockStatus.SKIPPED: return "destructive"; // Červená
-        case StudyBlockStatus.PLANNED:
-        default: return "outline";
+        case StudyBlockStatus.COMPLETED: return "default";
+        case StudyBlockStatus.IN_PROGRESS: return "secondary";
+        case StudyBlockStatus.SKIPPED: return "destructive";
+        case StudyBlockStatus.PLANNED: default: return "outline";
     }
 };
 const getStatusBadgeClass = (status: StudyBlockStatus): string => {
@@ -37,11 +34,9 @@ const getStatusBadgeClass = (status: StudyBlockStatus): string => {
         case StudyBlockStatus.COMPLETED: return 'bg-green-500 border-green-500 hover:bg-green-600 text-white';
         case StudyBlockStatus.IN_PROGRESS: return 'bg-blue-500 border-blue-500 hover:bg-blue-600 text-white';
         case StudyBlockStatus.SKIPPED: return 'bg-red-500 border-red-500 hover:bg-red-600 text-white opacity-80';
-        case StudyBlockStatus.PLANNED:
-        default: return 'border-border';
+        case StudyBlockStatus.PLANNED: default: return 'border-border';
     }
 };
-
 
 interface StudyBlockDetailDialogProps {
   block: StudyBlock | null;
@@ -79,26 +74,22 @@ export default function StudyBlockDetailDialog({
   const hasNotesChanged = onUpdateNotes && currentNotes.trim() !== (block.notes || "").trim();
 
   const renderActionButton = (targetStatus: StudyBlockStatus, currentStatus: StudyBlockStatus, text: string, Icon: React.ElementType, variant: "default" | "secondary" | "destructive" | "outline" = "outline") => {
-    // Nezobrazuj akciu, ak je to aktuálny stav (okrem "Znova plánovať" pre dokončené)
     if (targetStatus === currentStatus && targetStatus !== StudyBlockStatus.PLANNED) return null;
-    // Ak je dokončený, zobraz len "Znova plánovať"
     if (currentStatus === StudyBlockStatus.COMPLETED && targetStatus !== StudyBlockStatus.PLANNED) return null;
-    // Nezobrazuj "Začať" ak je už preskočený
     if (currentStatus === StudyBlockStatus.SKIPPED && targetStatus === StudyBlockStatus.IN_PROGRESS) return null;
-
 
     return (
         <Button
-            className="w-full sm:w-auto"
+            className="w-full" // Na malých obrazovkách budú tlačidlá pod sebou na celú šírku
             variant={variant}
             size="sm"
             onClick={async () => {
                 await onUpdateStatus(block.id, targetStatus);
-                if (isOpen && targetStatus === StudyBlockStatus.COMPLETED) onOpenChange(false); // Zavri len ak je dokončené
+                if (isOpen && targetStatus === StudyBlockStatus.COMPLETED) onOpenChange(false);
             }}
             disabled={isUpdating}
         >
-            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isUpdating && targetStatus === block.status && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {/* Loader len pre aktívne tlačidlo */}
             <Icon className="mr-2 h-4 w-4" />
             {text}
         </Button>
@@ -107,74 +98,83 @@ export default function StudyBlockDetailDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg dark:bg-slate-900">
-        <DialogHeader className="pb-4">
-          <DialogTitle className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+      {/* `sm:max-w-lg` pre väčšie obrazovky, defaultne bude užší */}
+      <DialogContent className="w-[90vw] max-w-lg dark:bg-slate-900">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-100 leading-tight">
             Detail Študijného Bloku
           </DialogTitle>
-          <DialogDescription className="text-sm text-gray-500 dark:text-gray-400 flex items-center pt-1">
-            <BookOpen className="mr-2 h-4 w-4" />
-            Téma: <strong className="ml-1 text-primary">{block.topic.name}</strong>
+          <DialogDescription className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-start pt-1">
+            <BookOpen className="mr-2 h-4 w-4 mt-0.5 shrink-0" />
+            {/* `break-words` pre zalamovanie dlhých názvov tém */}
+            <span className="break-words">
+                Téma: <strong className="text-primary">{block.topic.name}</strong>
+            </span>
           </DialogDescription>
         </DialogHeader>
         
-        <div className="py-2 space-y-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+        {/* `max-h-[calc(100vh-16rem)]` alebo podobne pre výšku obsahu na rôznych zariadeniach */}
+        <div className="py-2 space-y-3 max-h-[60vh] sm:max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
           
-          {/* Sekcia Informácie o bloku */}
-          <div className="space-y-2 p-3 border rounded-md bg-muted/20 dark:bg-slate-800/50">
-            <h3 className="text-sm font-medium text-muted-foreground mb-1.5">Základné informácie</h3>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-300">Status:</span>
+          <div className="space-y-1.5 p-3 border rounded-md bg-muted/20 dark:bg-slate-800/50">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Základné informácie</h3>
+            
+            <div className="flex items-center justify-between text-sm min-h-[2rem]"> {/* min-height pre konzistentnú výšku */}
+              <span className="text-gray-600 dark:text-gray-300 flex items-center">
+                <Info className="mr-2 h-4 w-4 shrink-0" /> Status:
+              </span>
               <Badge 
                 variant={getStatusBadgeVariant(block.status)} 
-                className={`text-xs font-medium ${getStatusBadgeClass(block.status)}`}
+                className={`text-xs font-medium ml-2 ${getStatusBadgeClass(block.status)}`}
               >
                   {formatEnumValue(block.status)}
               </Badge>
             </div>
 
             {block.scheduled_at && (
-              <div className="flex items-center text-sm">
-                  <Calendar className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-gray-600 dark:text-gray-300">
+              <div className="flex items-start text-sm min-h-[2rem]">
+                  <Calendar className="mr-2 h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="text-gray-600 dark:text-gray-300">
                       <span className="font-medium">Naplánované: </span>
-                      {new Date(block.scheduled_at).toLocaleString('sk-SK', { dateStyle: 'medium', timeStyle: 'short' })}
-                  </span>
+                      {/* `break-words` pre prípad veľmi dlhého formátu dátumu/času na úzkych obrazovkách */}
+                      <span className="break-words">
+                        {new Date(block.scheduled_at).toLocaleString('sk-SK', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </span>
+                  </div>
               </div>
             )}
 
-            {block.duration_minutes && (
-               <div className="flex items-center text-sm">
+            {block.duration_minutes !== null && block.duration_minutes !== undefined && ( // Prísnejšia kontrola
+               <div className="flex items-center text-sm min-h-[2rem]">
                   <Hourglass className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-gray-600 dark:text-gray-300"><span className="font-medium">Trvanie: </span>{block.duration_minutes} minút</span>
               </div>
             )}
           </div>
 
-          {/* Sekcia Poznámky */}
           <div className="space-y-1.5 pt-2">
               <label htmlFor={`blockNotes-${block.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Vaše poznámky k tomuto bloku:
+                Vaše poznámky:
               </label>
               <Textarea 
                   id={`blockNotes-${block.id}`}
                   value={currentNotes}
                   onChange={(e) => setCurrentNotes(e.target.value)}
                   placeholder="Pridajte si poznámky, dôležité body alebo otázky..."
-                  rows={5} // Viac riadkov pre poznámky
+                  rows={4} // Menší počet riadkov, keďže je scroll
                   disabled={isUpdating}
-                  className="text-sm resize-y min-h-[80px] bg-background dark:bg-slate-800 dark:border-slate-700 focus-visible:ring-primary"
+                  className="text-sm resize-y min-h-[60px] w-full bg-background dark:bg-slate-800 dark:border-slate-700 focus-visible:ring-primary"
               />
               {onUpdateNotes && (
                   <div className="flex justify-end pt-1">
                     <Button 
                         size="sm" 
-                        variant="secondary" // Menej výrazné tlačidlo
+                        variant="secondary"
                         onClick={handleNotesSave} 
                         disabled={isUpdating || !hasNotesChanged}
                         className="dark:text-gray-300 dark:hover:bg-slate-700"
                     >
-                        {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isUpdating && currentNotes !== (block.notes || "") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {/* Loader len ak sa ukladajú poznámky */}
                         {hasNotesChanged ? "Uložiť Poznámky" : "Poznámky Uložené"}
                     </Button>
                   </div>
@@ -184,18 +184,17 @@ export default function StudyBlockDetailDialog({
 
         <Separator className="my-3 dark:bg-slate-700" />
 
-        <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2 pt-1">
+        <DialogFooter className="flex-col space-y-2 sm:space-y-0 sm:flex-row sm:justify-between sm:space-x-2 pt-1">
             <DialogClose asChild>
                 <Button type="button" variant="outline" className="w-full sm:w-auto dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700" disabled={isUpdating}>
                     Zavrieť
                 </Button>
             </DialogClose>
-            {/* Akčné tlačidlá pre zmenu statusu */}
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {/* Akčné tlačidlá pre zmenu statusu - teraz v `grid` pre lepšie usporiadanie na mobiloch */}
+            <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 w-full sm:w-auto">
                 {renderActionButton(StudyBlockStatus.COMPLETED, block.status, "Dokončené", CheckCircle2, "default")}
-                {renderActionButton(StudyBlockStatus.IN_PROGRESS, block.status, "Začať Študovať", Zap, "outline")}
-                {renderActionButton(StudyBlockStatus.PLANNED, block.status, "Znova Naplánovať", Hourglass, "outline")}
-                {/* Pridaj tlačidlo na preskočenie, ak je relevantné */}
+                {renderActionButton(StudyBlockStatus.IN_PROGRESS, block.status, "Začať", Zap, "outline")}
+                {renderActionButton(StudyBlockStatus.PLANNED, block.status, "Naplánovať", Hourglass, "outline")}
                 {renderActionButton(StudyBlockStatus.SKIPPED, block.status, "Preskočiť", XCircle, "destructive")}
             </div>
         </DialogFooter>

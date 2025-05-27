@@ -23,7 +23,8 @@ import {
 // Import sub-komponentov
 import TopicList from '@/components/subjects/TopicList';
 import TopicFormDialog from '@/components/subjects/TopicFormDialog';
-import StudyCalendarView from '@/components/subjects/StudyCalendarView'; // Import komponentu kalendára
+import StudyCalendarView, { CalendarEvent } from '@/components/subjects/StudyCalendarView'; // Pridaj CalendarEvent, ak ho StudyCalendarView exportuje
+import StudyBlockDetailDialog from '@/components/subjects/StudyBlockDetailDialog'; // <<<< NOVÝ IMPORT
 
 // Shadcn/ui imports
 import { Button } from "@/components/ui/button";
@@ -31,16 +32,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Label as ShadcnLabel } from "@/components/ui/label"; // Alias pre Label z shadcn, aby nekolidoval s HTML <label>
+import { Label as ShadcnLabel } from "@/components/ui/label";
 
 import { 
     ArrowLeft, AlertCircle, Loader2, FileText, 
-    ListChecks, BrainCog, Calendar, CheckCircle2, // Pridaj CheckCircle2 ikonu 
-    Hourglass, Zap, XCircle // Ďalšie ikony potrebné v komponente
+    ListChecks, BrainCog, Calendar, CheckCircle2, 
+    Hourglass, Zap, XCircle 
 } from "lucide-react";
 
-
-// Pomocná funkcia na formátovanie enum hodnôt (ak ju potrebuješ priamo tu)
 const formatEnumValue = (value: string | undefined | null): string => {
   if (!value) return '';
   return value.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
@@ -52,24 +51,30 @@ function SubjectDetailPageContent() {
   const router = useRouter();
   const subjectIdParam = params.subjectId as string;
 
-  // Stavy pre Predmet a Témy
   const [subject, setSubject] = useState<Subject | null>(null);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Stavy pre dialóg tém
   const [isTopicDialogOpen, setIsTopicDialogOpen] = useState(false);
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [isSubmittingTopic, setIsSubmittingTopic] = useState(false);
 
-  // Stavy pre Študijný Plán
   const [studyPlan, setStudyPlan] = useState<StudyPlan | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
-  const [showCalendarView, setShowCalendarView] = useState(true); // Defaultne zobraziť kalendár
+  const [showCalendarView, setShowCalendarView] = useState(true);
+
+  // --- NOVÉ STAVY PRE StudyBlockDetailDialog ---
+  const [selectedBlockForDetail, setSelectedBlockForDetail] = useState<StudyBlock | null>(null);
+  const [isBlockDetailDialogOpen, setIsBlockDetailDialogOpen] = useState(false);
+  // isUpdatingBlockNotes môže byť užitočný, ak dialóg umožňuje len úpravu poznámok a má vlastný submit
+  // Ak meníme status cez hlavný handler, tak isLoadingPlan alebo isUpdatingBlockStatus z hlavného komponentu
+  const [isProcessingBlockAction, setIsProcessingBlockAction] = useState(false); // Jeden stav pre akcie s blokom
+
 
   useEffect(() => {
+    // ... (useEffect pre načítanie predmetu, tém a plánu zostáva rovnaký) ...
     if (authContext?.token && subjectIdParam) {
       const subjectId = parseInt(subjectIdParam);
       if (isNaN(subjectId)) {
@@ -88,14 +93,12 @@ function SubjectDetailPageContent() {
             getActiveStudyPlanForSubject(subjectId, authContext.token)
               .then(planData => setStudyPlan(planData))
               .catch(err => {
-                console.error("Error fetching study plan:", err);
                 setPlanError((err as Error).message || 'Nepodarilo sa načítať študijný plán.');
               })
               .finally(() => setIsLoadingPlan(false));
           }
         })
         .catch(err => {
-          console.error("Error fetching subject details:", err);
           setError((err as Error).message || 'Nepodarilo sa načítať detail predmetu.');
         })
         .finally(() => setIsLoading(false));
@@ -105,23 +108,13 @@ function SubjectDetailPageContent() {
     }
   }, [authContext?.token, subjectIdParam]);
 
-  // --- Handlers pre Témy ---
-  const handleOpenNewTopicDialog = () => {
-    setEditingTopic(null);
-    setIsTopicDialogOpen(true);
-  };
-
-  const handleOpenEditTopicDialog = (topic: Topic) => {
-    setEditingTopic(topic);
-    setIsTopicDialogOpen(true);
-  };
-
+  // --- Handlers pre Témy (zostávajú rovnaké) ---
+  const handleOpenNewTopicDialog = () => { setEditingTopic(null); setIsTopicDialogOpen(true); };
+  const handleOpenEditTopicDialog = (topic: Topic) => { setEditingTopic(topic); setIsTopicDialogOpen(true); };
   const handleTopicFormSubmitCallback = async (data: TopicCreate | TopicUpdate, editingTopicId?: number) => {
     if (!authContext?.token || !subject) return;
     const subjectId = subject.id;
-    setIsSubmittingTopic(true);
-    setError(null);
-
+    setIsSubmittingTopic(true); setError(null);
     try {
         if (editingTopicId && editingTopic) {
             const updated = await updateTopic(editingTopicId, data as TopicUpdate, authContext.token);
@@ -132,57 +125,40 @@ function SubjectDetailPageContent() {
         }
         setIsTopicDialogOpen(false);
     } catch (err: unknown) {
-        console.error("Error submitting topic:", err);
         setError(err instanceof Error ? err.message : (editingTopicId ? 'Nepodarilo sa aktualizovať tému.' : 'Nepodarilo sa vytvoriť tému.'));
-    } finally {
-        setIsSubmittingTopic(false);
-    }
+    } finally { setIsSubmittingTopic(false); }
   };
-
   const handleDeleteTopicCallback = async (topicId: number) => {
-    if (!authContext?.token) return;
-    if (!window.confirm('Naozaj chcete zmazať túto tému? Jej bloky budú tiež odstránené z aktívneho plánu (ak existujú).')) return;
-    
+    if (!authContext?.token || !subject) return;
+    if (!window.confirm('Naozaj chcete zmazať túto tému? Jej bloky budú tiež odstránené z aktívneho plánu.')) return;
     setError(null);
     try {
         await deleteTopic(topicId, authContext.token);
         setTopics(prevTopics => prevTopics.filter(t => t.id !== topicId));
-        if (studyPlan && studyPlan.study_blocks.some(b => b.topic_id === topicId) && subject) {
-            console.log("Topic deleted was in plan, refetching plan to reflect changes...");
+        if (studyPlan && studyPlan.study_blocks.some(b => b.topic_id === topicId)) {
             setIsLoadingPlan(true);
-            getActiveStudyPlanForSubject(subject.id, authContext.token) // Použi subject.id pre istotu
+            getActiveStudyPlanForSubject(subject.id, authContext.token)
               .then(planData => setStudyPlan(planData))
-              .catch(err => setPlanError((err as Error).message || 'Chyba pri obnovení plánu po zmazaní témy.'))
+              .catch(err => setPlanError((err as Error).message || 'Chyba pri obnovení plánu.'))
               .finally(() => setIsLoadingPlan(false));
         }
-    } catch (err: unknown) {
-        console.error("Error deleting topic:", err);
-        setError(err instanceof Error ? err.message : "Nepodarilo sa zmazať tému.");
-    }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : "Nepodarilo sa zmazať tému."); }
   };
   
   // --- Handlers pre Študijný Plán ---
   const handleGenerateOrUpdatePlanCallback = async (options?: GeneratePlanOptions) => {
     if (!authContext?.token || !subject) return;
     setIsLoadingPlan(true); setPlanError(null);
-    
-    const planData: StudyPlanCreate = { 
-        subject_id: subject.id,
-        name: studyPlan?.name || undefined // Zachovaj existujúce meno alebo nechaj backend vygenerovať
-    };
-
+    const planData: StudyPlanCreate = { subject_id: subject.id, name: studyPlan?.name || undefined };
     try {
       const newOrUpdatedPlan = await generateOrGetStudyPlan(planData, authContext.token, options);
       setStudyPlan(newOrUpdatedPlan);
-    } catch (err) {
-      console.error("Error processing study plan:", err);
-      setPlanError((err as Error).message || 'Nepodarilo sa spracovať študijný plán.');
-    } finally {
-      setIsLoadingPlan(false);
-    }
+    } catch (err) { setPlanError((err as Error).message || 'Nepodarilo sa spracovať študijný plán.');
+    } finally { setIsLoadingPlan(false); }
   };
 
-  const handleUpdateBlockStatusCallback = async (blockId: number, newStatus: StudyBlockStatus) => {
+  // Tento handler bude spoločný pre zoznam aj pre dialóg detailu bloku
+  const handleUpdateBlockStatus = async (blockId: number, newStatus: StudyBlockStatus) => {
     if (!authContext?.token || !studyPlan) return;
     
     const originalBlocks = studyPlan.study_blocks;
@@ -190,6 +166,7 @@ function SubjectDetailPageContent() {
       block.id === blockId ? { ...block, status: newStatus } : block
     );
     setStudyPlan(prev => prev ? { ...prev, study_blocks: updatedBlocksOptimistic } : null);
+    setIsProcessingBlockAction(true); // Použi tento stav pre dialóg aj pre zoznam
     setPlanError(null);
 
     const blockData: StudyBlockUpdate = { status: newStatus };
@@ -198,14 +175,21 @@ function SubjectDetailPageContent() {
       
       setStudyPlan(prevPlan => {
         if (!prevPlan) return null;
+        const originalClickedBlock = originalBlocks.find(b => b.id === updatedBlockResponse.id);
+        const topicForBlock = originalClickedBlock?.topic || updatedBlockResponse.topic;
         const newBlocks = prevPlan.study_blocks.map(b =>
             b.id === updatedBlockResponse.id 
-            ? { ...updatedBlockResponse, topic: originalBlocks.find(ob => ob.topic_id === updatedBlockResponse.topic_id)?.topic || b.topic } 
+            ? { ...updatedBlockResponse, topic: topicForBlock } 
             : b
         );
         return { ...prevPlan, study_blocks: newBlocks.sort((a,b) => new Date(a.scheduled_at || 0).getTime() - new Date(b.scheduled_at || 0).getTime()) };
       });
       
+      // Aktualizuj aj selectedBlockForDetail, ak je otvorený dialóg
+      if (selectedBlockForDetail && selectedBlockForDetail.id === blockId) {
+        setSelectedBlockForDetail(prev => prev ? {...prev, status: newStatus} : null);
+      }
+
       if (newStatus === StudyBlockStatus.COMPLETED) {
         const affectedTopicId = originalBlocks.find(b => b.id === blockId)?.topic_id;
         if (affectedTopicId) {
@@ -215,51 +199,75 @@ function SubjectDetailPageContent() {
         }
       }
     } catch (err) {
-      console.error("Error updating study block:", err);
       setPlanError((err as Error).message || 'Nepodarilo sa aktualizovať študijný blok.');
-      setStudyPlan(prev => prev ? { ...prev, study_blocks: originalBlocks } : null);
+      setStudyPlan(prev => prev ? { ...prev, study_blocks: originalBlocks } : null); // Vráť optimistický update
+    } finally {
+      setIsProcessingBlockAction(false);
     }
   };
 
-  const calculateActionableTopicsCount = () => {
+  // NOVÝ HANDLER pre úpravu poznámok bloku z dialógu
+  const handleUpdateBlockNotes = async (blockId: number, notes: string) => {
+    if (!authContext?.token || !studyPlan) return;
+    setIsProcessingBlockAction(true);
+    setPlanError(null);
+
+    const blockData: StudyBlockUpdate = { notes: notes.trim() === "" ? null : notes.trim() };
+    const originalBlockFromPlan = studyPlan.study_blocks.find(b => b.id === blockId);
+    try {
+        const updatedBlockResponse = await updateStudyBlock(blockId, blockData, authContext.token);
+        setStudyPlan(prevPlan => {
+            if (!prevPlan) return null;
+            const topicForBlock = originalBlockFromPlan?.topic || updatedBlockResponse.topic;
+            const newBlocks = prevPlan.study_blocks.map(b =>
+                b.id === updatedBlockResponse.id 
+                ? { ...updatedBlockResponse, topic: topicForBlock } 
+                : b
+            );
+            return { ...prevPlan, study_blocks: newBlocks };
+        });
+        // Aktualizuj aj selectedBlockForDetail, aby sa zmena prejavila v otvorenom dialógu
+        if (selectedBlockForDetail && selectedBlockForDetail.id === blockId) {
+            setSelectedBlockForDetail(prev => prev ? {...prev, notes: updatedBlockResponse.notes} : null);
+        }
+    } catch (err) {
+        console.error("Error updating block notes:", err);
+        setPlanError((err as Error).message || 'Nepodarilo sa aktualizovať poznámky bloku.');
+    } finally {
+        setIsProcessingBlockAction(false);
+    }
+  };
+
+  const calculateActionableTopicsCount = () => { /* ... (zostáva rovnaká) ... */
     if (!topics || topics.length === 0) return 0;
     const uncompletedTopics = topics.filter(t => t.status !== TopicStatus.COMPLETED);
-    if (!studyPlan) {
-        return uncompletedTopics.length;
-    }
+    if (!studyPlan) { return uncompletedTopics.length; }
     const plannedTopicIds = studyPlan.study_blocks.map(b => b.topic_id);
     return uncompletedTopics.filter(t => !plannedTopicIds.includes(t.id)).length;
   };
 
-  // --- Stavy pre UI (Loading, Error, Not Found) ---
-  if (!authContext?.token || (!authContext?.user && isLoading)) {
-    return (<div className="flex flex-col justify-center items-center min-h-[calc(100vh-4rem)] p-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="mt-4 text-muted-foreground">Načítavam...</p></div>);
+  // --- Stavy pre UI (Loading, Error, Not Found) - zostávajú rovnaké ---
+  if (!authContext?.token || (!authContext?.user && isLoading)) { /* ... */ 
+      return (<div className="flex flex-col justify-center items-center min-h-[calc(100vh-4rem)] p-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="mt-4 text-muted-foreground">Načítavam...</p></div>);
   }
-  if (isLoading) {
-    return (<div className="flex flex-col justify-center items-center min-h-[calc(100vh-4rem)] p-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="mt-4 text-muted-foreground">Načítavam detail predmetu...</p></div>);
+  if (isLoading) { /* ... */ 
+      return (<div className="flex flex-col justify-center items-center min-h-[calc(100vh-4rem)] p-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="mt-4 text-muted-foreground">Načítavam detail predmetu...</p></div>);
   }
-  if (error && !subject) {
-    return (<div className="container mx-auto p-4 text-center mt-10"><Alert variant="destructive" className="max-w-md mx-auto"><AlertCircle className="h-4 w-4" /><AlertTitle>Chyba</AlertTitle><AlertDescription>{error}</AlertDescription></Alert><Button onClick={() => router.push('/dashboard')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" /> Späť na Dashboard</Button></div>);
+  if (error && !subject) { /* ... */ 
+      return (<div className="container mx-auto p-4 text-center mt-10"><Alert variant="destructive" className="max-w-md mx-auto"><AlertCircle className="h-4 w-4" /><AlertTitle>Chyba</AlertTitle><AlertDescription>{error}</AlertDescription></Alert><Button onClick={() => router.push('/dashboard')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" /> Späť na Dashboard</Button></div>);
   }
-  if (!subject) {
-    return (<div className="container mx-auto p-4 text-center mt-10"><Alert className="max-w-md mx-auto"><FileText className="h-4 w-4" /><AlertTitle>Predmet nenájdený</AlertTitle><AlertDescription>Zdá sa, že tento predmet neexistuje alebo k nemu nemáte prístup.</AlertDescription></Alert><Button onClick={() => router.push('/dashboard')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" /> Späť na Dashboard</Button></div>);
+  if (!subject) { /* ... */ 
+      return (<div className="container mx-auto p-4 text-center mt-10"><Alert className="max-w-md mx-auto"><FileText className="h-4 w-4" /><AlertTitle>Predmet nenájdený</AlertTitle><AlertDescription>Zdá sa, že tento predmet neexistuje alebo k nemu nemáte prístup.</AlertDescription></Alert><Button onClick={() => router.push('/dashboard')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" /> Späť na Dashboard</Button></div>);
   }
 
+
   // Handler pre kliknutie na udalosť v kalendári (pre StudyCalendarView)
-  const handleCalendarEventSelect = (calendarEvent: { resource?: StudyBlock }) => {
-    const block = calendarEvent.resource;
-    if (!block) return;
-    
-    // Tu môžeš otvoriť dialóg s detailmi bloku, alebo zobraziť nejaké info.
-    // Pre jednoduchosť zatiaľ len alert, ale ideálne by to bol napr. shadcn Drawer alebo Dialog.
-    alert(
-      `Študijný Blok: ${block.topic.name}\n` +
-      `Status: ${formatEnumValue(block.status)}\n` +
-      `Naplánované: ${block.scheduled_at ? new Date(block.scheduled_at).toLocaleString('sk-SK') : 'N/A'}\n` +
-      `Trvanie: ${block.duration_minutes ? `${block.duration_minutes} min` : 'N/A'}`
-    );
-    // TODO: Implementovať krajší detail bloku (napr. pomocou Drawer alebo Dialogu)
-    // A pridať možnosť meniť status priamo odtiaľto.
+  // alebo na názov bloku v zozname
+  const openBlockDetail = (block: StudyBlock | undefined) => {
+    if (block) {
+        setSelectedBlockForDetail(block);
+        setIsBlockDetailDialogOpen(true);
+    }
   };
 
   return (
@@ -269,7 +277,7 @@ function SubjectDetailPageContent() {
           <ArrowLeft className="mr-2 h-4 w-4" /> Späť na Dashboard
         </Button>
       </div>
-      {error && (
+      {error && !isTopicDialogOpen && (
         <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Chyba Operácie s Témou</AlertTitle>
@@ -300,7 +308,7 @@ function SubjectDetailPageContent() {
         isSubmitting={isSubmittingTopic}
       />
       
-      {/* Sekcia Študijný Plán - teraz menggunakan StudyPlanDisplay alebo zoznam */}
+      {/* Sekcia Študijný Plán */}
       <Card className="mt-8">
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center">
@@ -308,21 +316,14 @@ function SubjectDetailPageContent() {
                 <CardTitle className="text-2xl">Študijný Plán</CardTitle>
             </div>
             <div className="flex items-center gap-x-4 gap-y-2 w-full sm:w-auto justify-end flex-wrap">
-                {/* Prepínač pohľadu */}
                 {studyPlan && studyPlan.study_blocks.length > 0 && (
                     <div className="flex items-center space-x-2 order-last sm:order-none">
                         <ShadcnLabel htmlFor="view-switch" className="text-sm font-normal">Zoznam</ShadcnLabel>
-                        <Switch
-                            id="view-switch"
-                            checked={showCalendarView}
-                            onCheckedChange={setShowCalendarView}
-                            aria-label="Prepnúť pohľad plánu"
-                        />
+                        <Switch id="view-switch" checked={showCalendarView} onCheckedChange={setShowCalendarView} />
                         <ShadcnLabel htmlFor="view-switch" className="text-sm font-normal">Kalendár</ShadcnLabel>
                     </div>
                 )}
-                {/* Tlačidlo na generovanie/aktualizáciu */}
-                {!isLoadingPlan && ( // Zobraz tlačidlo len ak sa plán nenahráva
+                {!isLoadingPlan && (
                     <Button 
                         onClick={() => handleGenerateOrUpdatePlanCallback({ forceRegenerate: !studyPlan })}
                         disabled={isLoadingPlan || (calculateActionableTopicsCount() === 0 && !studyPlan)}
@@ -343,13 +344,13 @@ function SubjectDetailPageContent() {
             
             {!isLoadingPlan && !planError && (
                 studyPlan ? (
-                    showCalendarView ? (
+                    showCalendarView && studyPlan.study_blocks.length > 0 ? (
                         <StudyCalendarView 
                             studyPlan={studyPlan} 
-                            onSelectEvent={handleCalendarEventSelect}
+                            onSelectEvent={(eventData) => openBlockDetail(eventData.resource)} // Použi openBlockDetail
+                            isUpdating={isLoadingPlan || isProcessingBlockAction} 
                         />
                     ) : ( 
-                        // Zobrazenie plánu ako zoznamu (prekopírované a upravené z StudyPlanDisplay)
                         <div>
                             <div className="mb-4 p-3 bg-muted/50 rounded-md">
                                 <h3 className="text-lg font-semibold">{studyPlan.name || `Plán pre ${subject?.name}`}</h3>
@@ -368,7 +369,12 @@ function SubjectDetailPageContent() {
                                     `}>
                                         <CardHeader className="p-3 sm:p-4 pb-2">
                                         <div className="flex items-center justify-between gap-2">
-                                            <CardTitle className="text-base sm:text-md flex-grow">{block.topic.name}</CardTitle>
+                                            <CardTitle 
+                                                className="text-base sm:text-md flex-grow hover:underline cursor-pointer" 
+                                                onClick={() => openBlockDetail(block)} // Otvor dialóg po kliknutí na názov
+                                            >
+                                                {block.topic.name}
+                                            </CardTitle>
                                             <Badge variant={ block.status === StudyBlockStatus.COMPLETED ? "default" : block.status === StudyBlockStatus.IN_PROGRESS ? "secondary" : block.status === StudyBlockStatus.SKIPPED ? "destructive" : "outline"} 
                                                    className={`text-xs px-1.5 py-0.5 shrink-0 ${block.status === StudyBlockStatus.COMPLETED ? 'bg-green-600 hover:bg-green-700' : ''} ${block.status === StudyBlockStatus.IN_PROGRESS ? 'bg-blue-600 hover:bg-blue-700' : ''}`}>
                                                 {formatEnumValue(block.status)}
@@ -376,18 +382,18 @@ function SubjectDetailPageContent() {
                                         </div>
                                         {block.scheduled_at && (
                                             <CardDescription className="text-xs flex items-center pt-1">
-                                            <Calendar className="mr-1.5 h-3 w-3" /> {/* Použi Calendar ikonu */}
+                                            <Calendar className="mr-1.5 h-3 w-3" />
                                             Naplánované: {new Date(block.scheduled_at).toLocaleDateString('sk-SK', { weekday: 'short', day: 'numeric', month: 'short' })}
                                             {block.duration_minutes && <span className="ml-2 inline-flex items-center"><Hourglass className="mr-1 h-3 w-3" /> {block.duration_minutes} min</span>}
                                             </CardDescription>
                                         )}
                                         </CardHeader>
-                                        {block.notes && <CardContent className="px-3 sm:px-4 pb-2 pt-0 text-xs italic text-muted-foreground">{block.notes}</CardContent>}
+                                        {block.notes && <CardContent className="px-3 sm:px-4 pb-2 pt-0 text-xs italic text-muted-foreground" onClick={() => openBlockDetail(block)}>{block.notes}</CardContent>}
                                         <CardFooter className="flex flex-wrap justify-end gap-2 px-3 sm:px-4 pt-1 pb-2 sm:pb-3">
-                                            {block.status !== StudyBlockStatus.COMPLETED && <Button variant="ghost" size="sm" className="text-green-600 hover:bg-green-100 hover:text-green-700" onClick={() => handleUpdateBlockStatusCallback(block.id, StudyBlockStatus.COMPLETED)}><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Dokončené</Button>}
-                                            {block.status !== StudyBlockStatus.IN_PROGRESS && block.status !== StudyBlockStatus.COMPLETED && <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-100 hover:text-blue-700" onClick={() => handleUpdateBlockStatusCallback(block.id, StudyBlockStatus.IN_PROGRESS)}><Zap className="mr-1 h-3.5 w-3.5" /> Začať</Button>}
-                                            {block.status !== StudyBlockStatus.SKIPPED && block.status !== StudyBlockStatus.COMPLETED && <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-100 hover:text-red-700" onClick={() => handleUpdateBlockStatusCallback(block.id, StudyBlockStatus.SKIPPED)}><XCircle className="mr-1 h-3.5 w-3.5" /> Preskočiť</Button>}
-                                            {block.status === StudyBlockStatus.COMPLETED && <Button variant="ghost" size="sm" className="text-muted-foreground hover:bg-gray-100 hover:text-gray-700" onClick={() => handleUpdateBlockStatusCallback(block.id, StudyBlockStatus.PLANNED)}><Hourglass className="mr-1 h-3.5 w-3.5" /> Znova plánovať</Button>}
+                                            {block.status !== StudyBlockStatus.COMPLETED && <Button variant="ghost" size="sm" className="text-green-600 hover:bg-green-100 hover:text-green-700" onClick={() => handleUpdateBlockStatus(block.id, StudyBlockStatus.COMPLETED)}><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Dokončené</Button>}
+                                            {block.status !== StudyBlockStatus.IN_PROGRESS && block.status !== StudyBlockStatus.COMPLETED && <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-100 hover:text-blue-700" onClick={() => handleUpdateBlockStatus(block.id, StudyBlockStatus.IN_PROGRESS)}><Zap className="mr-1 h-3.5 w-3.5" /> Začať</Button>}
+                                            {block.status !== StudyBlockStatus.SKIPPED && block.status !== StudyBlockStatus.COMPLETED && <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-100 hover:text-red-700" onClick={() => handleUpdateBlockStatus(block.id, StudyBlockStatus.SKIPPED)}><XCircle className="mr-1 h-3.5 w-3.5" /> Preskočiť</Button>}
+                                            {block.status === StudyBlockStatus.COMPLETED && <Button variant="ghost" size="sm" className="text-muted-foreground hover:bg-gray-100 hover:text-gray-700" onClick={() => handleUpdateBlockStatus(block.id, StudyBlockStatus.PLANNED)}><Hourglass className="mr-1 h-3.5 w-3.5" /> Znova plánovať</Button>}
                                         </CardFooter>
                                     </Card>
                                 ))}
@@ -397,8 +403,8 @@ function SubjectDetailPageContent() {
                                     <p className="text-lg font-semibold">Študijný plán je momentálne prázdny.</p>
                                     <p className="mt-1 text-sm">
                                         {calculateActionableTopicsCount() > 0
-                                        ? "Máte nové témy na naplánovanie. Kliknite na 'Aktualizovať Plán' alebo 'Vygenerovať Bloky' vyššie."
-                                        : "Všetky témy sú buď naplánované alebo dokončené. Pridajte nové témy do predmetu, ak chcete rozšíriť plán."}
+                                        ? "Máte nové témy na naplánovanie. Kliknite na tlačidlo 'Aktualizovať Plán' v hlavičke."
+                                        : "Všetky témy sú buď naplánované alebo dokončené."}
                                     </p>
                                 </div>
                             )}
@@ -410,7 +416,7 @@ function SubjectDetailPageContent() {
                         <p className="text-lg font-medium mb-1">Študijný plán ešte nebol vygenerovaný.</p>
                         <p className="text-sm">
                             {calculateActionableTopicsCount() > 0 
-                                ? "Kliknutím na tlačidlo vyššie ho môžete vytvoriť." 
+                                ? "Kliknutím na tlačidlo v hlavičke ho môžete vytvoriť." 
                                 : "Najprv pridajte témy do predmetu, aby bolo možné plán vygenerovať."
                             }
                         </p>
@@ -419,11 +425,25 @@ function SubjectDetailPageContent() {
             )}
         </CardContent>
       </Card>
+
+      {/* Dialóg pre detail študijného bloku */}
+      {selectedBlockForDetail && (
+        <StudyBlockDetailDialog
+            block={selectedBlockForDetail}
+            isOpen={isBlockDetailDialogOpen}
+            onOpenChange={(open) => {
+                setIsBlockDetailDialogOpen(open);
+                if (!open) setSelectedBlockForDetail(null);
+            }}
+            onUpdateStatus={handleUpdateBlockStatus} // Zmenené na hlavný handler
+            onUpdateNotes={handleUpdateBlockNotes}
+            isUpdating={isProcessingBlockAction} // Použi spoločný stav
+        />
+      )}
     </div>
   );
 }
 
-// Hlavný export stránky
 export default function SubjectDetailPage() {
   return (
     <ProtectedRoute>

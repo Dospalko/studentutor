@@ -28,14 +28,15 @@ const localizer: DateLocalizer = dateFnsLocalizer({
 });
 
 // Definícia typu pre udalosti v kalendári
-interface CalendarEvent {
-  id: number; // ID študijného bloku
-  title: string; // Názov témy
-  start: Date;
-  end: Date;
-  allDay?: boolean;
-  resource?: StudyBlock; // Pôvodný objekt StudyBlock pre ďalšie dáta
-}
+// V StudyCalendarView.tsx
+export interface CalendarEvent {
+    id: number; // block.id
+    title: string; // block.topic.name
+    start: Date;
+    end: Date;
+    allDay?: boolean;
+    resource?: StudyBlock; // Celý objekt StudyBlock
+  }
 
 interface StudyCalendarViewProps {
   studyPlan: StudyPlan | null;

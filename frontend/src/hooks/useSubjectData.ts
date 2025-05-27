@@ -18,7 +18,7 @@ interface UseSubjectDataProps {
   refetchStudyPlan: (subjectId: number) => Promise<void>;
 }
 
-export function useSubjectData({ subjectIdParam, studyPlan, setStudyPlan, refetchStudyPlan }: UseSubjectDataProps) {
+export function useSubjectData({ subjectIdParam, studyPlan, refetchStudyPlan }: UseSubjectDataProps) {
   const authContext = useContext(AuthContext);
 
   const [subject, setSubject] = useState<Subject | null>(null);

@@ -1,84 +1,76 @@
-/* frontend/src/app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-
-/* Príklad pre krajšie scrollbary (voliteľné, funguje v prehliadačoch s WebKit) */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  @apply bg-slate-100;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-blue-400 rounded-full;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-blue-500;
-}
-
-
-
 @layer base {
-  :root { /* Light mode premenné */
-    --background: 0 0% 100%;        /* Biela */
-    --foreground: 240 10% 3.9%;     /* Tmavomodrá-sivá (predtým takmer čierna) */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    
-    /* Upravme primárne farby pre light mode, aby boli výraznejšie */
-    --primary: 262.1 83.3% 57.8%; /* Výraznejšia fialová (napr. Shadcn default) */
-    --primary-foreground: 0 0% 98%;    /* Svetlý text na primárnej farbe */
-    
-    --secondary: 240 4.8% 95.9%;   /* Svetlo sivá */
-    --secondary-foreground: 240 5.9% 10%; /* Tmavý text na sekundárnej */
-    
+    --primary: 255 85% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 280 75% 60%;
+    --secondary-foreground: 0 0% 98%;
     --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%; /* Sivý text */
-    
+    --muted-foreground: 240 3.8% 46.1%;
     --accent: 240 4.8% 95.9%;
     --accent-foreground: 240 5.9% 10%;
-    
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 262.1 83.3% 57.8%; /* Rovnaká ako primárna pre focus ring */
-    
-    --radius: 0.5rem;
+    --ring: 255 85% 60%;
+    --radius: 1rem;
   }
 
-  .dark { /* Dark mode premenné - tieto vyzerajú rozumne */
-    --background: 240 10% 3.9%;     /* Tmavomodrá-sivá */
-    --foreground: 0 0% 98%;         /* Takmer biela */
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    
-    /* Primárna farba v dark mode môže byť svetlejšia verzia tej z light mode */
-    --primary: 262.1 83.3% 67.8%; /* Svetlejšia fialová */
-    --primary-foreground: 262.1 83.3% 17.8%; /* Tmavý text na svetlej primárnej */
-
-    --secondary: 240 3.7% 15.9%;
+    --primary: 255 85% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 280 75% 60%;
     --secondary-foreground: 0 0% 98%;
-    
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-    
     --accent: 240 3.7% 15.9%;
     --accent-foreground: 0 0% 98%;
-    
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 262.1 83.3% 57.8%; 
+    --ring: 255 85% 60%;
   }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }

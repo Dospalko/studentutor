@@ -155,6 +155,7 @@ interface FeatureCardProps {
   title: string
   description: string
   className?: string
+  style?: React.CSSProperties
 }
 
 function FeatureCard({ icon: Icon, title, description, className }: FeatureCardProps) {
@@ -336,7 +337,7 @@ function TestimonialsSection() {
                     </span>
                   ))}
                 </div>
-                <p className="text-foreground italic mb-6 flex-1">"{testimonial.quote}"</p>
+                <p className="text-foreground italic mb-6 flex-1">&ldquo;{testimonial.quote}&rdquo;</p>
                 <div>
                   <p className="font-semibold">{testimonial.author}</p>
                   <p className="text-sm text-muted-foreground">{testimonial.role}</p>

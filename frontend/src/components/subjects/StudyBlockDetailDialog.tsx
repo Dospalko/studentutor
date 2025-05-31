@@ -102,7 +102,6 @@ export default function StudyBlockDetailDialog({
     currentStatus: StudyBlockStatus,
     text: string,
     Icon: React.ElementType,
-    variant: "default" | "secondary" | "destructive" | "outline" = "outline",
   ) => {
     if (targetStatus === currentStatus && targetStatus !== StudyBlockStatus.PLANNED) return null
     if (currentStatus === StudyBlockStatus.COMPLETED && targetStatus !== StudyBlockStatus.PLANNED) return null
@@ -112,8 +111,8 @@ export default function StudyBlockDetailDialog({
 
     return (
       <Button
-        className="w-full"
-        variant={variant}
+        className={`w-full ${config.className}`}
+        variant={config.variant}
         size="sm"
         onClick={async () => {
           await onUpdateStatus(block.id, targetStatus)
@@ -232,10 +231,10 @@ export default function StudyBlockDetailDialog({
           </DialogClose>
 
           <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:gap-2">
-            {renderActionButton(StudyBlockStatus.COMPLETED, block.status, "Dokončené", CheckCircle2, "default")}
-            {renderActionButton(StudyBlockStatus.IN_PROGRESS, block.status, "Začať", Zap, "outline")}
-            {renderActionButton(StudyBlockStatus.PLANNED, block.status, "Naplánovať", Clock, "outline")}
-            {renderActionButton(StudyBlockStatus.SKIPPED, block.status, "Preskočiť", XCircle, "destructive")}
+            {renderActionButton(StudyBlockStatus.COMPLETED, block.status, "Dokončené", CheckCircle2)}
+            {renderActionButton(StudyBlockStatus.IN_PROGRESS, block.status, "Začať", Zap)}
+            {renderActionButton(StudyBlockStatus.PLANNED, block.status, "Naplánovať", Clock)}
+            {renderActionButton(StudyBlockStatus.SKIPPED, block.status, "Preskočiť", XCircle)}
           </div>
         </DialogFooter>
       </DialogContent>

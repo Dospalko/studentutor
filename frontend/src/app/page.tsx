@@ -155,7 +155,6 @@ interface FeatureCardProps {
   title: string
   description: string
   className?: string
-  style?: React.CSSProperties
 }
 
 function FeatureCard({ icon: Icon, title, description, className }: FeatureCardProps) {
@@ -266,25 +265,28 @@ function HowItWorksSection() {
           <p className="text-muted-foreground">Začať je jednoduché. Sledujte tieto kroky k úspešnému štúdiu.</p>
         </div>
 
-        <div className="relative">
-          {/* Connecting line */}
-          <div className="absolute top-1/2 left-0 w-full h-0.5 bg-muted hidden lg:block"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {steps.map((step, index) => (
+            <div
+              key={step.title}
+              className="flex flex-col items-center text-center relative"
+              style={{ animationDelay: `${index * 150}ms` }}
+            >
+              {/* Connecting line - only show between steps on large screens */}
+              {index < steps.length - 1 && (
+                <div
+                  className="absolute top-8 left-1/2 w-full h-0.5 bg-gradient-to-r from-primary/50 to-primary/20 hidden lg:block z-0"
+                  style={{ transform: "translateX(50%)" }}
+                ></div>
+              )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {steps.map((step, index) => (
-              <div
-                key={step.title}
-                className="flex flex-col items-center text-center"
-                style={{ animationDelay: `${index * 150}ms` }}
-              >
-                <div className="mb-6 flex items-center justify-center h-16 w-16 rounded-full bg-background border-4 border-muted relative z-10">
-                  <step.icon className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="mb-3 text-xl font-semibold">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">{step.description}</p>
+              <div className="mb-6 flex items-center justify-center h-16 w-16 rounded-full bg-background border-4 border-primary/20 relative z-10 shadow-lg">
+                <step.icon className="h-6 w-6 text-primary" />
               </div>
-            ))}
-          </div>
+              <h3 className="mb-3 text-xl font-semibold">{step.title}</h3>
+              <p className="text-sm text-muted-foreground max-w-xs">{step.description}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

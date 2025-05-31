@@ -155,6 +155,7 @@ interface FeatureCardProps {
   title: string
   description: string
   className?: string
+  style?: React.CSSProperties
 }
 
 function FeatureCard({ icon: Icon, title, description, className }: FeatureCardProps) {

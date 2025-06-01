@@ -151,7 +151,7 @@ export default function Navbar() {
                     variant="outline"
                     className="ml-1 bg-primary/10 border-primary/20 text-primary text-[10px] px-1 py-0 hidden sm:flex"
                   >
-                    <Sparkles className="h-3 w-3 mr-0.5" />
+                    <Sparkles className="h-3 w-3 mr-0.5 text-white" />
                     Zdarma
                   </Badge>
                 </Button>

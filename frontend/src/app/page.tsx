@@ -276,7 +276,7 @@ function HowItWorksSection() {
               {/* Connecting line - only show between steps on large screens */}
               {index < steps.length - 1 && (
                 <div
-                  className="absolute top-8 left-1/2 w-full h-0.5 bg-gradient-to-r from-primary/50 to-primary/20 hidden lg:block z-0"
+                  className="absolute top-8  w-full h-0.5 bg-gradient-to-r from-primary/50 to-primary/20 hidden lg:block z-0"
                   style={{ transform: "translateX(50%)" }}
                 ></div>
               )}

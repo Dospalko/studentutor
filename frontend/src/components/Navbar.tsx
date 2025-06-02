@@ -143,13 +143,13 @@ export default function Navbar() {
                   <span>Prihlásiť sa</span>
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href="/register" >
                 <Button size="sm" className="flex items-center gap-2 group">
                   <UserPlus className="h-4 w-4 group-hover:scale-110 transition-transform" />
                   <span>Registrovať sa</span>
                   <Badge
                     variant="outline"
-                    className="ml-1 bg-primary/10 border-primary/20 text-primary text-[10px] px-1 py-0 hidden sm:flex"
+                    className="ml-1 bg-primary/10 border-primary/20 text-white text-[10px] px-1 py-0 hidden sm:flex"
                   >
                     <Sparkles className="h-3 w-3 mr-0.5 text-white" />
                     Zdarma

@@ -51,9 +51,6 @@ export default function HomePage() {
       <HowItWorksSection />
       <TestimonialsSection />
       <CallToActionBottom />
-      <footer className="py-8 text-center text-sm text-muted-foreground bg-muted">
-        © {new Date().getFullYear()} TutorAI. Všetky práva vyhradené.
-      </footer>
     </main>
   )
 }

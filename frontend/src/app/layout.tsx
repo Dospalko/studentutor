@@ -29,10 +29,10 @@ export default function RootLayout({
           <main className="flex-grow pt-20 pb-8 md:pt-24"> {/* Viac paddingu pre Navbar a priestor dole */}
             {children}
           </main>
-          {/* Tu by mohol byť Footer */}
-          {/* <footer className="bg-slate-800 text-slate-300 text-center p-4">
+       
+           <footer className="py-8 text-center text-sm text-muted-foreground bg-muted">
             © 2024 Personalizovaný Tutor
-          </footer> */}
+          </footer> 
         </AuthProvider>
       </body>
     </html>

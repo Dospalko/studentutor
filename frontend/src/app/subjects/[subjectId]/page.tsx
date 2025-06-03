@@ -238,6 +238,50 @@ function SubjectDetailPageContent() {
     }
   };
 
+  
+const handleUpdateBlockSchedule = async (blockId: number, newStart: Date) => {
+  if (!authContext?.token || !studyPlan) return;
+
+  setIsProcessingBlockAction(true);
+  setPlanError(null);
+
+  /* optimistický update UI */
+  setStudyPlan(prev =>
+    prev
+      ? {
+          ...prev,
+          study_blocks: prev.study_blocks.map(b =>
+            b.id === blockId ? { ...b, scheduled_at: newStart.toISOString() } : b
+          ),
+        }
+      : null
+  );
+
+  try {
+    const payload: StudyBlockUpdate = { scheduled_at: newStart.toISOString() };
+    await updateStudyBlock(blockId, payload, authContext.token);
+  } catch (err) {
+    setPlanError(
+      (err as Error).message || "Nepodarilo sa uložiť nový dátum/čas bloku."
+    );
+    /* revertujeme optimistický update */
+    setStudyPlan(studyPlan);
+  } finally {
+    setIsProcessingBlockAction(false);
+  }
+};
+// 🆕 presun z kalendára → uložiť nový dátum
+const handleEventDropFromCalendar = async ({
+  event,
+  start,
+}: {
+  event: { id: number };
+  start: Date;
+}) => {
+  await handleUpdateBlockSchedule(event.id, start);
+};
+
+
   const calculateActionableTopicsCount = () => { /* ... (zostáva rovnaká) ... */
     if (!topics || topics.length === 0) return 0;
     const uncompletedTopics = topics.filter(t => t.status !== TopicStatus.COMPLETED);
@@ -348,8 +392,9 @@ function SubjectDetailPageContent() {
                         <StudyCalendarView 
                             studyPlan={studyPlan} 
                             onSelectEvent={(eventData) => openBlockDetail(eventData.resource)} // Použi openBlockDetail
-                            isUpdating={isLoadingPlan || isProcessingBlockAction} 
-                        />
+                            onEventDrop={handleEventDropFromCalendar}   /* 🆕 */
+                            isUpdating={isLoadingPlan || isProcessingBlockAction}
+                          />
                     ) : ( 
                         <div>
                             <div className="mb-4 p-3 bg-muted/50 rounded-md">
@@ -435,6 +480,7 @@ function SubjectDetailPageContent() {
                 setIsBlockDetailDialogOpen(open);
                 if (!open) setSelectedBlockForDetail(null);
             }}
+            onUpdateSchedule={handleUpdateBlockSchedule} 
             onUpdateStatus={handleUpdateBlockStatus} // Zmenené na hlavný handler
             onUpdateNotes={handleUpdateBlockNotes}
             isUpdating={isProcessingBlockAction} // Použi spoločný stav

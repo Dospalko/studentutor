@@ -47,10 +47,10 @@ allowed_origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["http://localhost:3000"],  # prípadne ["*"] počas vývoja
     allow_credentials=True,
-    allow_methods=["*"], # Alebo špecifikuj len potrebné: ["GET", "POST", "PUT", "DELETE"]
-    allow_headers=["*"], # Alebo špecifikuj len potrebné
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.get("/", tags=["Root"])

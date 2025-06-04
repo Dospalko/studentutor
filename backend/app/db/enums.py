@@ -24,3 +24,13 @@ class StudyBlockStatus(str, enum.Enum):
     COMPLETED = "completed"
     SKIPPED = "skipped"
     IN_PROGRESS = "in_progress"
+
+class MaterialTypeEnum(str, enum.Enum):
+    SKRIPTA = "skripta"
+    PREZENTACIA = "prezentacia"
+    POZNAMKY = "poznamky"
+    CVICENIA = "cvicenia"
+    TEST = "test"
+    CLANOK = "clanok"
+    KNIHA = "kniha"
+    INE = "ine"

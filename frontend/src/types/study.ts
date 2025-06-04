@@ -25,3 +25,13 @@ export enum StudyBlockStatus {
     SKIPPED = "skipped",
     IN_PROGRESS = "in_progress",
 }
+export enum MaterialTypeEnum {
+  SKRIPTA = "skripta",
+  PREZENTACIA = "prezentacia",
+  POZNAMKY = "poznamky",
+  CVICENIA = "cvicenia",
+  TEST = "test",
+  CLANOK = "clanok",
+  KNIHA = "kniha",
+  INE = "ine",
+}

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Enum as SQLAlchemyEnum, DateTime
 from sqlalchemy.orm import relationship
-from ...database import Base
+from ..base import Base
 from ..enums import StudyPlanStatus, StudyBlockStatus # Importuj enumy
 from datetime import datetime
 class StudyPlan(Base):

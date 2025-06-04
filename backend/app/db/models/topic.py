@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import relationship
-from ...database import Base
+from ..base import Base
 from ..enums import TopicStatus, UserDifficulty # Importuj enumy odtiaľto
 class Topic(Base):
       __tablename__ = "topics"

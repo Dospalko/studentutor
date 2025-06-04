@@ -19,7 +19,7 @@ const formatEnumValue = (value: string): string => {
 interface StudyMaterialUploadFormProps {
   subjectId: number;
   // Callback po úspešnom nahraní, aby rodič mohol aktualizovať zoznam materiálov
-  onUploadSuccess: (newMaterial: any) => void; 
+  onUploadSuccess: (newMaterial: unknown) => void; 
   token: string | null;
 }
 

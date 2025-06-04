@@ -12,10 +12,13 @@ class SubjectUpdate(BaseModel):
       name: Optional[str] = Field(None, min_length=1, max_length=100)
       description: Optional[str] = None
 
-class Subject(SubjectBase):
-      id: int
-      owner_id: int
-      topics: List[Topic] = []
+from .study_material import StudyMaterial # Import novej schémy
 
-      class Config:
-          from_attributes = True
+class Subject(SubjectBase): # Uprav existujúcu Subject schému
+    id: int
+    owner_id: int
+    topics: List[Topic] = []
+    materials: List[StudyMaterial] = [] # PRIDANÉ
+
+    class Config:
+        from_attributes = True

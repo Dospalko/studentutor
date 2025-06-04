@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, Enum as SQLAlchemyEnum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.db.base_class import Base # Importuj Base zo správneho miesta
+from ..base import Base# Importuj Base zo správneho miesta
 from app.db.enums import MaterialTypeEnum # Importuj enum pre typ materiálu
 
 class StudyMaterial(Base):
@@ -23,4 +23,4 @@ class StudyMaterial(Base):
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False) # Kto nahral súbor
 
     subject = relationship("Subject", back_populates="materials")
-    owner = relationship("User", back_populates="study_materials_uploaded") # Nový vzťah v User modeli
+    owner = relationship("User", back_populates="study_materials_uploaded") # Nový vzťah v User modeli subject = relationship("Subject", back_populates="materials")

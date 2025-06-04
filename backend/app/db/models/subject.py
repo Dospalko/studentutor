@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import relationship
-from ...database import Base
+from ..base import Base
 class Subject(Base):
       __tablename__ = "subjects"
       id = Column(Integer, primary_key=True, index=True)
@@ -10,3 +10,4 @@ class Subject(Base):
       owner = relationship("User", back_populates="subjects")
       topics = relationship("Topic", back_populates="subject", cascade="all, delete-orphan")
       # study_plans = relationship("StudyPlan", back_populates="subject", cascade="all, delete-orphan") # Ak by sme chceli tento vzťah
+      materials = relationship("StudyMaterial", back_populates="subject", cascade="all, delete-orphan")

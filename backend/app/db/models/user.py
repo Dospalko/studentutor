@@ -11,3 +11,6 @@ class User(Base):
       is_active = Column(Boolean, default=True)
       subjects = relationship("Subject", back_populates="owner", cascade="all, delete-orphan")
       # study_plans = relationship("StudyPlan", back_populates="owner", cascade="all, delete-orphan") # Ak by sme chceli tento vzťah
+      subjects = relationship("Subject", back_populates="owner", cascade="all, delete-orphan")
+    # Nový vzťah pre materiály, ktoré používateľ nahral (naprieč všetkými jeho predmetmi)
+      study_materials_uploaded = relationship("StudyMaterial", back_populates="owner", cascade="all, delete-orphan")

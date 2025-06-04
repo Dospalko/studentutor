@@ -7,3 +7,7 @@ get_study_plan, get_active_study_plan_for_subject,
 create_study_plan_with_blocks, update_study_plan,
 get_study_block, update_study_block
 )
+from .crud_study_material import (
+    create_study_material, get_study_material, get_study_materials_for_subject, 
+    update_study_material, delete_study_material
+)

@@ -4,7 +4,6 @@ import { StudyPlanStatus, StudyBlockStatus } from '@/types/study';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// --- Typy (zostávajú rovnaké alebo upravené podľa backendu) ---
 export interface StudyBlock {
   id: number;
   scheduled_at?: string | null;
@@ -14,6 +13,8 @@ export interface StudyBlock {
   study_plan_id: number;
   topic_id: number;
   topic: Topic;
+  material_id?: number | null;
+  subject_id: number;
 }
 
 export interface StudyPlan {
@@ -37,47 +38,45 @@ export interface StudyBlockUpdate {
   duration_minutes?: number | null;
   status?: StudyBlockStatus;
   notes?: string | null;
+  material_id?: number | null;
 }
 
-export interface GeneratePlanOptions { // ZMENA na camelCase
-    forceRegenerate?: boolean;
-  }
-  
-  export const generateOrGetStudyPlan = async (
-    planData: StudyPlanCreate,
-    token: string,
-    options?: GeneratePlanOptions
-  ): Promise<StudyPlan> => {
-    let apiUrl = `${API_BASE_URL}/study-plans/`;
-    
-    const queryParams = new URLSearchParams();
-    // Konverzia na snake_case pre API query parameter, ak je to potrebné
-    if (options?.forceRegenerate) { // Použi camelCase z options
-      queryParams.append('force_regenerate', 'true'); // API očakáva snake_case
-    }
-    
-    if (queryParams.toString()) {
-        apiUrl += `?${queryParams.toString()}`;
-    }
-  
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(planData),
-    });
-  
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: 'Failed to generate or get study plan' }));
-      throw new Error(errorData.detail || 'Failed to generate or get study plan');
-    }
-    return response.json();
-  };
+export interface GeneratePlanOptions {
+  forceRegenerate?: boolean;
+}
 
-// Funkcia na načítanie aktívneho študijného plánu pre predmet
-export const getActiveStudyPlanForSubject = async (subjectId: number, token: string): Promise<StudyPlan | null> => {
+export const generateOrGetStudyPlan = async (
+  planData: StudyPlanCreate,
+  token: string,
+  options?: GeneratePlanOptions
+): Promise<StudyPlan> => {
+  let apiUrl = `${API_BASE_URL}/study-plans/`;
+  const queryParams = new URLSearchParams();
+  if (options?.forceRegenerate) {
+    queryParams.append('force_regenerate', 'true');
+  }
+  if (queryParams.toString()) {
+    apiUrl += `?${queryParams.toString()}`;
+  }
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(planData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to generate or get study plan' }));
+    throw new Error(errorData.detail || 'Failed to generate or get study plan');
+  }
+  return response.json();
+};
+
+export const getActiveStudyPlanForSubject = async (
+  subjectId: number,
+  token: string
+): Promise<StudyPlan | null> => {
   const response = await fetch(`${API_BASE_URL}/study-plans/subject/${subjectId}`, {
     method: 'GET',
     headers: {
@@ -94,8 +93,11 @@ export const getActiveStudyPlanForSubject = async (subjectId: number, token: str
   return text ? JSON.parse(text) : null;
 };
 
-// Funkcia na aktualizáciu študijného bloku
-export const updateStudyBlock = async (blockId: number, blockData: StudyBlockUpdate, token: string): Promise<StudyBlock> => {
+export const updateStudyBlock = async (
+  blockId: number,
+  blockData: StudyBlockUpdate,
+  token: string
+): Promise<StudyBlock> => {
   const response = await fetch(`${API_BASE_URL}/study-plans/blocks/${blockId}`, {
     method: 'PUT',
     headers: {

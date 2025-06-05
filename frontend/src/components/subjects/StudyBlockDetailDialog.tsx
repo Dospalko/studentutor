@@ -1,8 +1,10 @@
+// frontend/src/components/subjects/StudyBlockDetailDialog.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import type { StudyBlock } from "@/services/studyPlanService";
 import { StudyBlockStatus } from "@/types/study";
+import { getStudyMaterialsForSubject, StudyMaterial } from "@/services/studyMaterialService";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,10 +32,11 @@ import {
   FileText,
 } from "lucide-react";
 
-/* ✨ shadcn komponenty pre date & time */
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { TimePicker } from "../ui/time-picker";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+
 const formatEnumValue = (val?: string | null) =>
   val ? val.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
 
@@ -70,21 +73,17 @@ const getStatusConfig = (status: StudyBlockStatus) => {
   }
 };
 
-/* ---------- Props ---------- */
 interface StudyBlockDetailDialogProps {
   block: StudyBlock | null;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onUpdateStatus: (blockId: number, newStatus: StudyBlockStatus) => Promise<void>;
   onUpdateNotes?: (blockId: number, notes: string) => Promise<void>;
-  /* ✨ nový callback na zmenu dátumu/času */
   onUpdateSchedule?: (blockId: number, newStart: Date) => Promise<void>;
+  onAssignMaterial?: (blockId: number, materialId: number | null) => Promise<void>;
   isUpdating: boolean;
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                 Component                                  */
-/* -------------------------------------------------------------------------- */
 export default function StudyBlockDetailDialog({
   block,
   isOpen,
@@ -92,16 +91,27 @@ export default function StudyBlockDetailDialog({
   onUpdateStatus,
   onUpdateNotes,
   onUpdateSchedule,
+  onAssignMaterial,
   isUpdating,
 }: StudyBlockDetailDialogProps) {
   const [currentNotes, setCurrentNotes] = useState("");
   const [tempStart, setTempStart] = useState<Date | null>(null);
+  const [materials, setMaterials] = useState<StudyMaterial[]>([]);
+  const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
+  const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
 
-  /* ---------- Sync lokálneho stavu pri otvorení ---------- */
   useEffect(() => {
     if (isOpen && block) {
       setCurrentNotes(block.notes || "");
       setTempStart(block.scheduled_at ? new Date(block.scheduled_at) : null);
+      setSelectedMaterialId(block.material_id ?? null);
+      if (block.subject_id) {
+        setIsLoadingMaterials(true);
+        getStudyMaterialsForSubject(block.subject_id, "") // token handled upstream if needed
+          .then((list) => setMaterials(list))
+          .catch(() => setMaterials([]))
+          .finally(() => setIsLoadingMaterials(false));
+      }
     }
   }, [isOpen, block]);
 
@@ -110,31 +120,32 @@ export default function StudyBlockDetailDialog({
   const statusCfg = getStatusConfig(block.status);
   const StatusIcon = statusCfg.icon;
 
-  /* ---------- Uloženie poznámok ---------- */
   const handleNotesSave = async () => {
-    if (
-      onUpdateNotes &&
-      currentNotes.trim() !== (block.notes || "").trim()
-    ) {
+    if (onUpdateNotes && currentNotes.trim() !== (block.notes || "").trim()) {
       await onUpdateNotes(block.id, currentNotes.trim());
     }
   };
 
-  /* ---------- Uloženie dátumu/času ---------- */
   const handleScheduleSave = async () => {
     if (onUpdateSchedule && tempStart) {
       await onUpdateSchedule(block.id, tempStart);
     }
   };
 
-  /* ---------- Render pomocného tlačidla pre status ---------- */
+  const handleAssignMaterial = async () => {
+    if (onAssignMaterial) {
+      await onAssignMaterial(block.id, selectedMaterialId);
+    }
+  };
+
   const renderActionButton = (
     targetStatus: StudyBlockStatus,
     text: string,
     Icon: React.ElementType
   ) => {
     if (
-      targetStatus === block.status && targetStatus !== StudyBlockStatus.PLANNED
+      targetStatus === block.status &&
+      targetStatus !== StudyBlockStatus.PLANNED
     )
       return null;
     if (
@@ -170,13 +181,9 @@ export default function StudyBlockDetailDialog({
     );
   };
 
-  /* ---------------------------------------------------------------------- */
-  /*                                 JSX                                    */
-  /* ---------------------------------------------------------------------- */
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* ----------------------- Hlavička ----------------------- */}
         <DialogHeader className="space-y-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10 text-primary">
@@ -198,7 +205,6 @@ export default function StudyBlockDetailDialog({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* ----------------- Status + základné info ----------------- */}
           <Card className="border-muted/40">
             <CardContent className="p-4 space-y-4">
               <div className="flex items-center justify-between">
@@ -214,7 +220,6 @@ export default function StudyBlockDetailDialog({
                 </Badge>
               </div>
 
-              {/* --------- Dátum/čas naplánovania --------- */}
               {block.scheduled_at && (
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -230,7 +235,6 @@ export default function StudyBlockDetailDialog({
                 </div>
               )}
 
-              {/* --------- Trvanie --------- */}
               {block.duration_minutes != null && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -245,7 +249,6 @@ export default function StudyBlockDetailDialog({
             </CardContent>
           </Card>
 
-          {/* ----------------- Úprava dátumu/času ----------------- */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
               <CalendarIcon className="h-4 w-4" />
@@ -291,7 +294,6 @@ export default function StudyBlockDetailDialog({
             </Button>
           </div>
 
-          {/* ----------------- Poznámky ----------------- */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
@@ -333,9 +335,51 @@ export default function StudyBlockDetailDialog({
               </div>
             )}
           </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Priradiť materiál</span>
+            </div>
+            {isLoadingMaterials ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Načítavam materiály...</span>
+              </div>
+            ) : (
+              <Select
+                value={selectedMaterialId !== null ? String(selectedMaterialId) : "none"}
+                onValueChange={(val) =>
+                  setSelectedMaterialId(val === "none" ? null : Number(val))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Vyberte materiál alebo žiadny" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Žiadny</SelectItem>
+                  {materials.map((mat) => (
+                    <SelectItem key={mat.id} value={String(mat.id)}>
+                      {mat.title || mat.file_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {onAssignMaterial && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleAssignMaterial}
+                disabled={isUpdating}
+              >
+                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Uložiť Výber
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* ----------------- Footer (akcie) ----------------- */}
         <Separator className="my-6" />
 
         <DialogFooter className="flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:space-x-3">

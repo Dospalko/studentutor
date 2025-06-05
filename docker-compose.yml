@@ -1,3 +1,4 @@
+# docker-compose.yml
 version: '3.8'
 
 services:
@@ -7,36 +8,42 @@ services:
       dockerfile: Dockerfile
     container_name: tutor_backend
     volumes:
-      - backend_sqlite_data:/app/data # Pomenovaný volume pre SQLite dáta
-      # Pre live reload počas vývoja (môže spomaliť kontajner):
-      # - ./backend/app:/app/app
+      - backend_sqlite_data:/app/data
+      - ./media_uploads:/app/media_files_data
     ports:
       - "8000:8000"
     env_file:
-      - ./backend/.env # Načíta premenné z .env súboru backendu
+      - ./backend/.env
+    environment:
+      MEDIA_FILES_BASE_DIR: /app/media_files_data
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      # Ak potrebuješ build argumenty (napr. API URL počas build time, hoci to neodporúčam pre tento prípad)
-      # args:
-      #   NEXT_PUBLIC_API_URL: http://localhost:8000 # Toto je pre build time, nie runtime
     container_name: tutor_frontend
-    # Pre live reload počas vývoja (môže spomaliť kontajner a vyžaduje úpravy v Next.js configu pre Docker):
-    # volumes:
-    #   - ./frontend/src:/app/src
-    #   - ./frontend/public:/app/public
     ports:
       - "3000:3000"
     environment:
-      # Toto je dôležité! Frontend kontajner bude kontaktovať backend cez názov služby 'backend'
       NEXT_PUBLIC_API_URL: http://backend:8000
-      # NODE_ENV: development # Môžeš nastaviť na development, ak chceš HMR, ale vyžaduje ďalšie nastavenia
     depends_on:
       - backend
     restart: unless-stopped
 
+  postgres:
+    image: postgres:15
+    container_name: tutor_postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: tutoruser
+      POSTGRES_PASSWORD: tutorpassword
+      POSTGRES_DB: tutordb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
 volumes:
-  backend_sqlite_data: # Definícia pomenovaného volume pre perzistentné dáta
+  backend_sqlite_data:
+  postgres_data:

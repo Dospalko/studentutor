@@ -1,7 +1,7 @@
 // frontend/src/components/subjects/SimplePdfViewer.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,28 +28,31 @@ export default function SimplePdfViewer({
   const [effectiveTitle, setEffectiveTitle] = useState("Dokument");
 
   useEffect(() => {
-    if (title) setEffectiveTitle(title);
+    if (title && title.trim()) {
+      setEffectiveTitle(title);
+    }
   }, [title]);
 
   if (!isOpen || !blobUrl) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-[85vh] md:h-[90vh] flex flex-col overflow-hidden">
-        <DialogHeader className="p-4 border-b flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            <DialogTitle className="truncate text-lg">
+      <DialogContent className="w-[90vw] max-w-4xl h-[90vh] flex flex-col overflow-hidden rounded-lg shadow-lg">
+        <DialogHeader className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-4 border-b">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-5 w-5 text-gray-600 dark:text-gray-300 flex-shrink-0" />
+            <DialogTitle className="truncate text-lg font-medium text-gray-800 dark:text-gray-100">
               {effectiveTitle}
             </DialogTitle>
           </div>
           <DialogClose asChild>
             <Button variant="ghost" size="icon" title="Zavrieť">
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
             </Button>
           </DialogClose>
         </DialogHeader>
-        <div className="flex-grow overflow-hidden">
+
+        <div className="flex-grow bg-white dark:bg-gray-900">
           <iframe
             src={blobUrl}
             className="w-full h-full border-none"

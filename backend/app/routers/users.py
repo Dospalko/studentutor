@@ -1,4 +1,3 @@
-# backend/app/routers/users.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -6,8 +5,8 @@ from typing import List
 from app.database import get_db
 from app.dependencies import get_current_active_user
 from app.db.models.user import User as UserModel
-from app.schemas import user as user_schema # napr. user_schema.User, user_schema.UserCreate
-from app.crud import crud_user # napr. crud_user.create_user
+from app.schemas import user as user_schema
+from app.crud import crud_user
 
 router = APIRouter(
     prefix="/users",
@@ -16,7 +15,7 @@ router = APIRouter(
 
 @router.post("/", response_model=user_schema.User, status_code=status.HTTP_201_CREATED)
 def create_user_registration(
-    user_payload: user_schema.UserCreate, # Názov parametra, ktorý prijíma telo požiadavky
+    user_payload: user_schema.UserCreate,
     db: Session = Depends(get_db)
 ):
     db_user = crud_user.get_user_by_email(db, email=user_payload.email)
@@ -25,10 +24,8 @@ def create_user_registration(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
-    # Volanie CRUD funkcie s pomenovaným argumentom 'user_in', ktorý teraz očakáva
     created_user_orm = crud_user.create_user(db=db, user_in=user_payload)
     return created_user_orm
-
 
 @router.get("/me", response_model=user_schema.User, dependencies=[Depends(get_current_active_user)])
 async def read_current_user_me(
@@ -36,12 +33,25 @@ async def read_current_user_me(
 ):
     return current_user_orm
 
+@router.put("/me", response_model=user_schema.User, dependencies=[Depends(get_current_active_user)])
+def update_current_user_profile_info(
+    user_update_data: user_schema.UserUpdate, # Prijíma dáta podľa UserUpdate
+    db: Session = Depends(get_db),
+    current_user_orm: UserModel = Depends(get_current_active_user)
+):
+    updated_user = crud_user.update_user_profile(
+        db=db, 
+        db_user_orm_to_update=current_user_orm, 
+        user_update_payload=user_update_data
+    )
+    return updated_user
 
 @router.get("/{user_id}", response_model=user_schema.User, dependencies=[Depends(get_current_active_user)])
 def read_user_by_id(
     user_id: int,
     db: Session = Depends(get_db),
 ):
+    # Tu by mala byť logika oprávnení, či aktuálny používateľ môže vidieť tohto používateľa
     db_user = crud_user.get_user(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

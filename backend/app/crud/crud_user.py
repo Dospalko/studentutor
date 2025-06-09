@@ -1,15 +1,11 @@
-# backend/app/crud/crud_user.py
 from sqlalchemy.orm import Session
 from typing import Optional, TYPE_CHECKING
 
-# Použi plné cesty k modelom a core.security
-from app.db.models.user import User as UserModel # Alias pre ORM model
-from app.core.security import get_password_hash, verify_password # Importuj z nového miesta
+from app.db.models.user import User as UserModel
+from app.core.security import get_password_hash # verify_password tu nie je priamo použitý
 
-# Pre typovú anotáciu UserCreate, aby sa predišlo cyklickým importom,
-# ak by schemas importovalo niečo z crud (čo by nemalo)
 if TYPE_CHECKING:
-    from app.schemas.user import UserCreate 
+    from app.schemas.user import UserCreate, UserUpdate
 
 def get_user(db: Session, user_id: int) -> Optional[UserModel]:
     return db.query(UserModel).filter(UserModel.id == user_id).first()
@@ -17,23 +13,29 @@ def get_user(db: Session, user_id: int) -> Optional[UserModel]:
 def get_user_by_email(db: Session, email: str) -> Optional[UserModel]:
     return db.query(UserModel).filter(UserModel.email == email).first()
 
-# Funkcia teraz očakáva parameter 'user_in' (alebo 'user_create_input', atď.)
-# ktorý zodpovedá typu 'UserCreate' zo schém.
-# Typová anotácia je stringová pre flexibilitu pri riešení importov.
 def create_user(db: Session, user_in: 'UserCreate') -> UserModel:
-    """
-    Creates a new user in the database.
-    'user_in' is expected to be an instance of schemas.user.UserCreate
-    """
     hashed_password = get_password_hash(user_in.password)
-    db_user = UserModel( # Vytvor ORM model User
+    db_user_orm = UserModel(
         email=user_in.email,
         hashed_password=hashed_password,
         full_name=user_in.full_name
     )
-    db.add(db_user)
+    db.add(db_user_orm)
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(db_user_orm)
+    return db_user_orm
 
-# Funkcia verify_password je teraz v core.security
+def update_user_profile(db: Session, db_user_orm_to_update: UserModel, user_update_payload: 'UserUpdate') -> UserModel:
+    update_data = user_update_payload.model_dump(exclude_unset=True)
+    
+    for field, value in update_data.items():
+        if hasattr(db_user_orm_to_update, field): # Kontrola, či atribút existuje
+            setattr(db_user_orm_to_update, field, value if value is not None else getattr(db_user_orm_to_update, field))
+            # Ak je hodnota None, môžeme buď nastaviť na None (ak DB povoľuje NULL)
+            # alebo ponechať pôvodnú hodnotu. Tu ponechávame pôvodnú, ak je value None.
+            # Ak chceš explicitne mazať (nastaviť na NULL), tak len: setattr(db_user_orm_to_update, field, value)
+
+    db.add(db_user_orm_to_update)
+    db.commit()
+    db.refresh(db_user_orm_to_update)
+    return db_user_orm_to_update

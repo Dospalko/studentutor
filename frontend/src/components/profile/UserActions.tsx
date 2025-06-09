@@ -1,4 +1,3 @@
-// frontend/src/components/profile/UserActions.tsx
 "use client";
 
 import Link from 'next/link';
@@ -7,9 +6,10 @@ import { Edit, KeyRound, BarChartHorizontalBig, LogOut, ShieldCheck, LayoutGrid 
 
 interface UserActionsProps {
   onLogout: () => void;
+  onOpenEditProfile: () => void;
 }
 
-export default function UserActions({ onLogout }: UserActionsProps) {
+export default function UserActions({ onLogout, onOpenEditProfile }: UserActionsProps) {
   return (
     <div>
       <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
@@ -17,8 +17,8 @@ export default function UserActions({ onLogout }: UserActionsProps) {
         Nastavenia a Akcie
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Button variant="outline" disabled className="justify-start text-muted-foreground">
-          <Edit className="h-4 w-4 mr-2" /> Upraviť Profil (čoskoro)
+        <Button variant="outline" onClick={onOpenEditProfile} className="justify-start">
+          <Edit className="h-4 w-4 mr-2" /> Upraviť Profil
         </Button>
         <Button variant="outline" disabled className="justify-start text-muted-foreground">
           <KeyRound className="h-4 w-4 mr-2" /> Zmeniť Heslo (čoskoro)

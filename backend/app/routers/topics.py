@@ -1,85 +1,98 @@
 # backend/app/routers/topics.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
-# Aktualizované importy
-from ..database import get_db
-from ..dependencies import get_current_active_user
-from ..db import models as db_models # ORM modely
-from ..schemas import topic as topic_schemas # Pydantic schémy pre témy
-from ..crud import crud_topic, crud_subject # CRUD operácie
+# Použi správne cesty k tvojim modulom
+from app.database import get_db
+from app.dependencies import get_current_active_user
+from app.db.models.user import User as UserModel
+from app.db.models.subject import Subject as SubjectModel # Ak potrebuješ overiť predmet
+from app.schemas import topic as topic_schema # Alias pre schémy tém
+from app.crud import crud_topic, crud_subject # Importuj relevantné CRUD moduly
 
-router = APIRouter(
-    tags=["topics"],
-    dependencies=[Depends(get_current_active_user)]
-)
+router = APIRouter() # Tento router bude mať prefixy pridané v main.py alebo priamo na endpointe
 
-@router.post("/subjects/{subject_id}/topics", response_model=topic_schemas.Topic, status_code=status.HTTP_201_CREATED)
+# Prefix pre cesty tohto routera, ak nie je globálne nastavený pre celý modul
+TOPIC_OPERATIONS_PREFIX = "/topics" 
+SUBJECT_TOPICS_PREFIX = "/subjects/{subject_id}/topics"
+
+
+@router.post(SUBJECT_TOPICS_PREFIX + "/", response_model=topic_schema.Topic, status_code=status.HTTP_201_CREATED)
 def create_topic_for_subject_route(
     subject_id: int,
-    topic: topic_schemas.TopicCreate,
+    topic_payload: topic_schema.TopicCreate, # Prijíma dáta podľa TopicCreate
     db: Session = Depends(get_db),
-    current_user: db_models.User = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
+    # Over, či predmet existuje a patrí používateľovi
     db_subject = crud_subject.get_subject(db, subject_id=subject_id, owner_id=current_user.id)
     if not db_subject:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subject not found or not owned by user")
     
-    created_topic = crud_topic.create_topic(db=db, topic=topic, subject_id=subject_id, owner_id=current_user.id)
-    return created_topic
+    # OPRAVA: Použi 'topic_in' ako názov kľúčového argumentu, ak to CRUD funkcia očakáva
+    # alebo zmeň parameter 'topic' na 'topic_payload' v CRUD funkcii.
+    # Tu predpokladám, že CRUD funkcia create_topic očakáva parameter 'topic_in'.
+    created_topic_orm = crud_topic.create_topic(
+        db=db, 
+        topic_in=topic_payload, # <--- ZMENA Z 'topic' NA 'topic_in' (alebo ako sa volá v CRUD)
+        subject_id=subject_id, 
+        owner_id=current_user.id
+    )
+    if not created_topic_orm: # Ak by CRUD vrátil None (napr. pri nejakej internej chybe)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create topic")
+    return created_topic_orm
 
-@router.get("/subjects/{subject_id}/topics", response_model=List[topic_schemas.Topic])
+@router.get(SUBJECT_TOPICS_PREFIX + "/", response_model=List[topic_schema.Topic])
 def read_topics_for_subject_route(
     subject_id: int,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: db_models.User = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
     db_subject = crud_subject.get_subject(db, subject_id=subject_id, owner_id=current_user.id)
     if not db_subject:
-        # Ak predmet neexistuje, môžeme vrátiť 404 alebo prázdny zoznam.
-        # Ak CRUD vracia prázdny zoznam, FastAPI to spracuje.
-        # Ak chceme explicitne 404:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subject not found or not owned by user for fetching topics")
-
-
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subject not found or not owned by user")
     topics = crud_topic.get_topics_by_subject(db, subject_id=subject_id, owner_id=current_user.id, skip=skip, limit=limit)
     return topics
 
-@router.get("/topics/{topic_id}", response_model=topic_schemas.Topic)
+@router.get(TOPIC_OPERATIONS_PREFIX + "/{topic_id}", response_model=topic_schema.Topic)
 def read_topic_route(
     topic_id: int,
     db: Session = Depends(get_db),
-    current_user: db_models.User = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
     db_topic = crud_topic.get_topic(db, topic_id=topic_id, owner_id=current_user.id)
     if db_topic is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
     return db_topic
 
-@router.put("/topics/{topic_id}", response_model=topic_schemas.Topic)
+@router.put(TOPIC_OPERATIONS_PREFIX + "/{topic_id}", response_model=topic_schema.Topic)
 def update_topic_route(
     topic_id: int,
-    topic_update: topic_schemas.TopicUpdate,
+    topic_update_payload: topic_schema.TopicUpdate, # Prijíma dáta podľa TopicUpdate
     db: Session = Depends(get_db),
-    current_user: db_models.User = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
-    updated_topic = crud_topic.update_topic(db, topic_id=topic_id, topic_update=topic_update, owner_id=current_user.id)
-    if updated_topic is None:
+    # Opäť, uisti sa, že názov kľúčového argumentu zodpovedá definícii v CRUD
+    updated_topic_orm = crud_topic.update_topic(
+        db, 
+        topic_id=topic_id, 
+        topic_update=topic_update_payload, # Predpokladáme, že CRUD očakáva 'topic_update'
+        owner_id=current_user.id
+    )
+    if updated_topic_orm is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found or not authorized to update")
-    return updated_topic
+    return updated_topic_orm
 
-@router.delete("/topics/{topic_id}", response_model=topic_schemas.Topic)
+@router.delete(TOPIC_OPERATIONS_PREFIX + "/{topic_id}", response_model=topic_schema.Topic)
 def delete_topic_route(
     topic_id: int,
     db: Session = Depends(get_db),
-    current_user: db_models.User = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
-    # CRUD funkcia delete_topic by mala vrátiť ORM objekt zmazanej témy (alebo kópiu jej dát)
     deleted_topic_orm = crud_topic.delete_topic(db, topic_id=topic_id, owner_id=current_user.id)
     if deleted_topic_orm is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found or not authorized to delete")
-    # FastAPI skonvertuje ORM objekt na schému topic_schemas.Topic
     return deleted_topic_orm

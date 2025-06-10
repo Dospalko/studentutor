@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Enum as SQLAlchemyEnum, Text
 from sqlalchemy.orm import relationship
-from app.db.base_class import Base
+from ..base import Base
 from app.db.enums import AchievementCriteriaType
 
 class Achievement(Base):

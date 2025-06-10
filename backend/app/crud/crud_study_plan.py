@@ -4,7 +4,7 @@ from typing import List, Optional, TYPE_CHECKING
 from datetime import datetime, timedelta
 
 # SPRÁVNY IMPORT pre achievement_service
-from app.services.achievement_service import check_and_grant_achievements, get_or_create_achievement, grant_achievement_if_not_exists
+from app.services.achievement_service import check_and_grant_achievements, get_or_create_achievement, grant_achievement_if_not_yet_achieved
 # Importuj achievement definitions, ak ich tu priamo používaš
 from app.core.achievements_definitions import ALL_ACHIEVEMENTS_DEFINITIONS
 
@@ -117,7 +117,7 @@ def create_study_plan_with_blocks(
         gen_plan_def = next((item for item in ALL_ACHIEVEMENTS_DEFINITIONS if item["name"] == "Generátor Plánov"), None)
         if gen_plan_def:
             ach_obj = get_or_create_achievement(db, gen_plan_def["name"], gen_plan_def["description"], gen_plan_def["icon_name"], gen_plan_def["criteria_type"], gen_plan_def["criteria_value"])
-            grant_achievement_if_not_exists(db, user_orm, ach_obj) # Commit je v grant_achievement_if_not_exists
+            grant_achievement_if_not_yet_achieved(db, user_orm, ach_obj) # Commit je v grant_achievement_if_not_yet_achieved
             
     return get_study_plan(db, db_study_plan.id, owner_id)
 

@@ -1,1 +1,1 @@
-from .achievement_service import check_and_grant_achievements,grant_achievement_if_not_exists,get_or_create_achievement
+from .achievement_service import check_and_grant_achievements,grant_achievement_if_not_yet_achieved,get_or_create_achievement

@@ -34,3 +34,13 @@ class MaterialTypeEnum(str, enum.Enum):
     CLANOK = "clanok"
     KNIHA = "kniha"
     INE = "ine"
+
+
+class AchievementCriteriaType(str, enum.Enum):
+    SUBJECTS_CREATED = "subjects_created" # Počet vytvorených predmetov
+    TOPICS_COMPLETED = "topics_completed" # Počet dokončených tém celkovo
+    TOPICS_COMPLETED_IN_SUBJECT = "topics_completed_in_subject" # Počet dokončených tém v jednom predmete
+    STUDY_BLOCKS_COMPLETED = "study_blocks_completed" # Počet dokončených študijných blokov
+    LOGIN_STREAK = "login_streak" # Koľko dní po sebe sa prihlásil (pokročilejšie)
+    PERFECT_SCORE_TOPIC = "perfect_score_topic" # Ak by si mal testovanie
+    FIRST_PLAN_GENERATED = "first_plan_generated"

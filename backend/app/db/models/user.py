@@ -13,3 +13,4 @@ class User(Base):
       subjects = relationship("Subject", back_populates="owner", cascade="all, delete-orphan")
     # Nový vzťah pre materiály, ktoré používateľ nahral (naprieč všetkými jeho predmetmi)
       study_materials_uploaded = relationship("StudyMaterial", back_populates="owner", cascade="all, delete-orphan")
+      achievements = relationship("UserAchievement", back_populates="user", cascade="all, delete-orphan")

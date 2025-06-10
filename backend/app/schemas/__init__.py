@@ -5,3 +5,5 @@ from .study_plan import StudyPlan, StudyPlanCreate, StudyPlanUpdate, StudyPlanBa
 from .token import Token, TokenData
 # ... (existujúce importy)
 from .study_material import StudyMaterial, StudyMaterialCreate, StudyMaterialUpdate # PRIDANÉ
+
+from .achievement import Achievement, AchievementCreate, UserAchievement, UserAchievementCreate # PRIDANÉ

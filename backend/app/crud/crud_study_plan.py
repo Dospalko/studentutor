@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List, Optional, TYPE_CHECKING
 from datetime import datetime, timedelta
 
+from backend.app.services.achievement_service import check_and_grant_achievements
+
 # Import ORM modelov
 from ..db import models
 
@@ -14,7 +16,7 @@ from .crud_subject import get_subject
 
 # Import Pydantic schém, ktoré sa používajú na vytváranie inštancií v tele funkcií
 from ..schemas.study_plan import StudyBlockCreate # Ak StudyBlockCreate používame na vytvorenie inštancie
-
+from .crud_user import get_user as get_user_orm
 # Pre typové anotácie parametrov funkcií (aby sa predišlo cyklickým importom pri štarte)
 if TYPE_CHECKING:
     from ..schemas.study_plan import StudyPlanUpdate, StudyBlockUpdate
@@ -56,13 +58,16 @@ def get_active_study_plan_for_subject(db: Session, subject_id: int, owner_id: in
     return plan
 
 def create_study_plan_with_blocks(
+        
     db: Session,
     subject_id: int,
     owner_id: int,
     name: Optional[str] = None,
     force_regenerate: bool = False
 ) -> Optional[models.StudyPlan]:
-    
+    user_orm = get_user_orm(db, user_id=owner_id) # Načítaj ORM usera
+    if not user_orm: return None # Ak user neexistuje
+ 
     # `get_subject` by mal načítať aj `subject.topics` vďaka selectinload v `crud_subject.py`
     subject = get_subject(db, subject_id=subject_id, owner_id=owner_id)
     if not subject:
@@ -180,11 +185,15 @@ def update_study_block(db: Session, study_block_id: int, block_update: 'StudyBlo
         setattr(db_block, key, value) # Pydantic už skonvertoval stringovú hodnotu statusu na enum
     
     # Ak sa mení status na COMPLETED, aktualizuj aj tému
-    if 'status' in update_data and update_data['status'] == StudyBlockStatus.COMPLETED: # Použitie importovaného enumu
-        if db_block.topic and db_block.topic.status != TopicStatus.COMPLETED: # Použitie importovaného enumu
-            print(f"[DEBUG CRUD update_study_block] Setting topic ID {db_block.topic.id} to COMPLETED.")
-            db_block.topic.status = TopicStatus.COMPLETED # Použitie importovaného enumu
-            db.add(db_block.topic) 
+    if 'status' in update_data and update_data['status'] == models.StudyBlockStatus.COMPLETED:
+         if db_block.topic and db_block.topic.status != models.TopicStatus.COMPLETED:
+             db_block.topic.status = models.TopicStatus.COMPLETED
+             db.add(db_block.topic)
+             
+             # Skontroluj achievementy po dokončení témy (cez blok)
+             user_orm = get_user_orm(db, user_id=owner_id)
+             if user_orm:
+                 check_and_grant_achievements(db, user_orm) # Toto bude kontrolovať VŠETKY achievementy
     
     db.add(db_block)
     try:

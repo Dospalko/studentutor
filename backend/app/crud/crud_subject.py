@@ -1,6 +1,9 @@
 # backend/app/crud/crud_subject.py
 from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional, TYPE_CHECKING
+
+from backend.app.crud import crud_user
+from backend.app.services.achievement_service import check_and_grant_achievements
 from ..db import models
 if TYPE_CHECKING:
       from ..schemas.subject import SubjectCreate, SubjectUpdate
@@ -19,6 +22,9 @@ def create_subject(db: Session, subject: 'SubjectCreate', owner_id: int) -> mode
       db.add(db_subject)
       db.commit()
       db.refresh(db_subject)
+      user_orm = crud_user.get_user(db, user_id=owner_id) # Načítaj ORM usera
+      if user_orm:
+         check_and_grant_achievements(db, user_orm)
       return db_subject
 
 def update_subject(db: Session, subject_id: int, subject_update: 'SubjectUpdate', owner_id: int) -> Optional[models.Subject]:

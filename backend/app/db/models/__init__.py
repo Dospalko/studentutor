@@ -18,3 +18,6 @@ from .subject import Subject
 from .topic import Topic
 from .study_plan import StudyPlan, StudyBlock
 from .study_material import StudyMaterial
+
+from .achievement import Achievement
+from .user_achievement import UserAchievement

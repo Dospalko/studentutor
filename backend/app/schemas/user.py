@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
+from .achievement import UserAchievement # Import novej schémy
+
 # from .subject import Subject # Pre cyklickú závislosť, ak User.subjects je List[Subject]
 class UserBase(BaseModel):
       email: EmailStr
@@ -16,8 +18,8 @@ class UserUpdate(BaseModel):
 class User(UserBase):
       id: int
       is_active: bool
-      # Ak by si tu chcel subjects: List[Subject], použi stringovú anotáciu:
-      # subjects: List['Subject'] = [] # A na konci súboru User.model_rebuild()
+      achievements: List[UserAchievement] = [] # PRIDANÉ
+
 
       class Config:
           from_attributes = True

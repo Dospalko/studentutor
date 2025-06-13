@@ -65,7 +65,7 @@ export default function BlockMaterialSelector({ subjectId, initialMaterialId, on
             <SelectItem value="none">Žiadny (odobrat priradenie)</SelectItem>
             {materials.map((mat) => (
               <SelectItem key={mat.id} value={String(mat.id)}>
-                {mat.title || mat.file_name} ({(mat.file_size / 1024).toFixed(1)} KB)
+                {mat.title || mat.file_name} ({((mat.file_size ?? 0) / 1024).toFixed(1)} KB)
               </SelectItem>
             ))}
           </SelectContent>

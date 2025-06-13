@@ -37,6 +37,7 @@ function UserProfilePageContent() {
     } else if (authContext && !authContext.isLoading && !authContext.user) {
       setIsLoadingSubjects(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authContext?.token, authContext?.user, authContext?.isLoading]);
 
   if (authContext?.isLoading || !authContext?.user) {

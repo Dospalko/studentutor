@@ -69,7 +69,6 @@ export default function UserAchievements() {
   }, [authContext?.token]);
 
   if (isLoading) {
-    // ... (kód pre loading state zostáva rovnaký)
     return (
       <div>
         <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">

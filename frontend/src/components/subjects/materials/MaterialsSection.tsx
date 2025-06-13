@@ -9,8 +9,8 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { FileText } from "lucide-react";
-import StudyMaterialUploadForm from "@/components/subjects/StudyMaterialUploadForm";
-import StudyMaterialList from "@/components/subjects/StudyMaterialList";
+import StudyMaterialUploadForm from "@/components/subjects/materials/StudyMaterialUploadForm";
+import StudyMaterialList from "@/components/subjects/materials/StudyMaterialList";
 import { StudyMaterial } from "@/services/studyMaterialService";
 
 interface Props {

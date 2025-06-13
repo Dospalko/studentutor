@@ -1,8 +1,8 @@
 // src/components/subjects/TopicsSection.tsx
 "use client";
 import { FC, useState } from "react";
-import TopicList from "@/components/subjects/TopicList";
-import TopicFormDialog from "@/components/subjects/TopicFormDialog";
+import TopicList from "@/components/subjects/topics/TopicList";
+import TopicFormDialog from "@/components/subjects/topics/TopicFormDialog";
 import { Topic, TopicCreate, TopicUpdate } from "@/services/topicService";
 
 interface Props {

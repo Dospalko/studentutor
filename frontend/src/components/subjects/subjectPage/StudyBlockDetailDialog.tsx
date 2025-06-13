@@ -5,11 +5,11 @@ import { useEffect } from "react"; // Odstránený useContext, ak ho tu priamo n
 import type { StudyBlock } from "@/services/studyPlanService";
 import { StudyBlockStatus } from "@/types/study";
 // Importy pre sub-komponenty
-import BlockStatusInfo from "./dialogBlocks/BlockStatusInfo";
-import BlockScheduleEditor from "./dialogBlocks/BlockScheduleEditor";
-import BlockNotesEditor from "./dialogBlocks/BlockNotesEditor";
-import BlockMaterialSelector from "./dialogBlocks/BlockMaterialSelector";
-import BlockActionButtons from "./dialogBlocks/BlockActionButtons";
+import BlockStatusInfo from "../dialogBlocks/BlockStatusInfo";
+import BlockScheduleEditor from "../dialogBlocks/BlockScheduleEditor";
+import BlockNotesEditor from "../dialogBlocks/BlockNotesEditor";
+import BlockMaterialSelector from "../dialogBlocks/BlockMaterialSelector";
+import BlockActionButtons from "../dialogBlocks/BlockActionButtons";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";

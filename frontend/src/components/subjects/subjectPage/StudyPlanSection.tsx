@@ -14,8 +14,8 @@ import {
 import { FC, useState } from "react";
 import { StudyPlan } from "@/services/studyPlanService";
 import { StudyBlockStatus } from "@/types/study";
-import StudyCalendarView from "@/components/subjects/StudyCalendarView";
-import StudyBlockDetailDialog from "@/components/subjects/StudyBlockDetailDialog";
+import StudyCalendarView from "@/components/subjects/subjectPage/StudyCalendarView";
+import StudyBlockDetailDialog from "@/components/subjects/subjectPage/StudyBlockDetailDialog";
 import { Switch } from "@/components/ui/switch";
 import { Label as ShadcnLabel } from "@/components/ui/label";
 

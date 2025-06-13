@@ -7,9 +7,9 @@ import { useAuth } from "@/hooks/useAuth";
 
 import SubjectHeader from "@/components/subjects/subjectPage/SubjectHeader";
 import SubjectOverview from "@/components/subjects/subjectPage/SubjectOverview";
-import TopicsSection from "@/components/subjects/subjectPage/TopicsSection";
+import TopicsSection from "@/components/subjects/topics/TopicsSection";
 import StudyPlanSection from "@/components/subjects/subjectPage/StudyPlanSection";
-import MaterialsSection from "@/components/subjects/subjectPage/MaterialsSection";
+import MaterialsSection from "@/components/subjects/materials/MaterialsSection";
 
 const SubjectDetailPageContent = () => {
   const { subjectId } = useParams<{ subjectId: string }>();

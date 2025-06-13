@@ -19,7 +19,7 @@ import {
   BookOpen,
   Sparkles,
 } from "lucide-react"
-import SimplePdfViewer from "@/components/subjects/SimplePdfViewer"
+import SimplePdfViewer from "@/components/subjects/materials/SimplePdfViewer"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 const formatEnumValue = (value: string | undefined | null): string => {

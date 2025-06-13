@@ -1,108 +1,110 @@
-// frontend/src/context/AuthContext.tsx
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react'; // Pridaný useCallback
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export interface User { // Exportuj User typ, aby ho mohli používať aj iné komponenty
+export interface User {
   id: number;
   email: string;
   full_name: string | null;
   is_active: boolean;
-  // Ak by si v budúcnosti pridával napr. rolu alebo iné info, pridaj ich sem
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   token: string | null;
   user: User | null;
   isLoading: boolean;
   login: (newToken: string) => void;
   logout: () => void;
-  fetchUser: (currentToken?: string) => Promise<void>; // Upravený typ pre currentToken
-  setUser: React.Dispatch<React.SetStateAction<User | null>>; // <<<< NOVÝ PROP PRE SETTER
+  fetchUser: (currentToken?: string) => Promise<void>;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+/*  ➜ nechávame undefined, aby sme odhalili chýbajúci <AuthProvider>  */
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
-interface AuthProviderProps {
+interface Props {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<Props> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null); // setUser je tu definovaný
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Funkcia logout musí byť definovaná pred fetchUser, ak ju fetchUser volá
-  const performLogout = useCallback(() => { // useCallback, aby sa nemenila referencia zbytočne
-    localStorage.removeItem('authToken');
+  /* logout v callbacku – nemenná referencia */
+  const logout = useCallback(() => {
+    localStorage.removeItem("authToken");
     setToken(null);
     setUser(null);
-    // Optional: redirect to login page if not already handled by ProtectedRoute or similar
-    // napr. if (typeof window !== 'undefined') window.location.href = '/login';
-    // Ale toto je lepšie riešiť cez Next.js router v komponentoch.
   }, []);
 
-
-  const fetchUser = useCallback(async (currentToken?: string) => {
-    const tokenToUse = currentToken || token;
-    if (!tokenToUse) {
-      setUser(null); // Ak nie je token, nastav usera na null
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true); // Nastav loading pred fetchom
-    try {
-      const response = await fetch(`${API_BASE_URL}/users/me`, {
-        headers: {
-          Authorization: `Bearer ${tokenToUse}`,
-        },
-      });
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        console.error('Failed to fetch user, token might be invalid. Status:', response.status);
-        performLogout(); // Použi stabilnú referenciu na logout
+  /* -------- fetchUser -------- */
+  const fetchUser = useCallback(
+    async (currentToken?: string) => {
+      const tk = currentToken ?? token;
+      if (!tk) {
+        setUser(null);
+        setIsLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      performLogout(); // Pri akejkoľvek chybe odhlás
-    } finally {
+
+      setIsLoading(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/users/me`, {
+          headers: { Authorization: `Bearer ${tk}` },
+        });
+
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        const userData: User = await res.json();
+        setUser(userData);
+      } catch (err) {
+        console.error("fetchUser error:", err);
+        logout();
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [token, logout]
+  );
+
+  /* inicializácia na mount */
+  useEffect(() => {
+    const stored = localStorage.getItem("authToken");
+    if (stored) {
+      setToken(stored);
+      fetchUser(stored);
+    } else {
       setIsLoading(false);
     }
-  }, [token, performLogout]); // Závislosti pre useCallback
+  }, [fetchUser]);
 
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      setToken(storedToken); // Nastav token zo storage
-      fetchUser(storedToken); // Potom načítaj usera s týmto tokenom
-    } else {
-      setIsLoading(false); // Ak nie je token v storage, nie je čo načítavať
-    }
-  }, [fetchUser]); // useEffect závisí od fetchUser (ktorý je teraz stabilný vďaka useCallback)
-
+  /* login helper */
   const login = (newToken: string) => {
-    localStorage.setItem('authToken', newToken);
+    localStorage.setItem("authToken", newToken);
     setToken(newToken);
-    fetchUser(newToken); // Načítaj používateľské dáta po prihlásení
+    fetchUser(newToken);
   };
 
-  return (
-    <AuthContext.Provider value={{ 
-        token, 
-        user, 
-        isLoading, 
-        login, 
-        logout: performLogout, // Použi stabilnú referenciu na logout
-        fetchUser, 
-        setUser // <<<< PRIDANÝ setUser DO VALUE OBJEKTU
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value: AuthContextType = {
+    token,
+    user,
+    isLoading,
+    login,
+    logout,
+    fetchUser,
+    setUser,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

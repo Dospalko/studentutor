@@ -25,7 +25,7 @@ interface StudyBlockDetailDialogProps {
   onUpdateStatus: (blockId: number, newStatus: StudyBlockStatus) => Promise<void>;
   onUpdateNotes: (blockId: number, notes: string | null) => Promise<void>; // Povolíme null na vymazanie
   onUpdateSchedule: (blockId: number, newStart: Date) => Promise<void>;
-  onAssignMaterial: (blockId: number, materialId: number | null) => Promise<void>;
+  onAssignMaterial?: (blockId: number, materialId: number | null) => Promise<void>;
   isUpdating: boolean; // Jeden globálny isUpdating pre všetky akcie v dialógu
 }
 
@@ -86,7 +86,11 @@ export default function StudyBlockDetailDialog({
           <BlockMaterialSelector
             subjectId={block.subject_id} // Predpokladáme, že StudyBlock má subject_id
             initialMaterialId={block.material_id}
-            onSaveMaterial={(materialId) => onAssignMaterial(block.id, materialId)}
+            onSaveMaterial={
+              onAssignMaterial
+                ? (materialId) => onAssignMaterial(block.id, materialId)
+                : async () => {}
+            }
             isUpdating={isUpdating}
           />
         </div>

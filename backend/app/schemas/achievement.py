@@ -1,35 +1,29 @@
+# backend/app/schemas/achievement.py
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
-from app.db.enums import AchievementCriteriaType # Importuj enum
+from app.db.enums import AchievementCriteriaType
 
 class AchievementBase(BaseModel):
     name: str
     description: str
     icon_name: Optional[str] = None
-    criteria_type: Optional[AchievementCriteriaType] = None
-    criteria_value: Optional[int] = None
+    criteria_type: Optional[AchievementCriteriaType] = None # Voliteľné pre 'all defined'
+    criteria_value: Optional[int] = None # Voliteľné pre 'all defined'
 
-class AchievementCreate(AchievementBase): # Pre administrátora na vytváranie achievementov
-    pass
-
-class Achievement(AchievementBase): # Pre response z API
+class Achievement(AchievementBase): # Pre zobrazenie definície achievementu
     id: int
 
     class Config:
         from_attributes = True
 
 class UserAchievementBase(BaseModel):
-    achievement_id: int
     achieved_at: datetime
 
-class UserAchievementCreate(UserAchievementBase): # Ak by sa prideľovali manuálne
-    user_id: int
-    pass
-
-class UserAchievement(UserAchievementBase): # Pre response z API (keď sa získava userov profil)
+class UserAchievement(UserAchievementBase): # Pre zobrazenie získaného achievementu
     id: int
     user_id: int
+    achievement_id: int
     achievement: Achievement # Vnorené detaily achievementu
 
     class Config:

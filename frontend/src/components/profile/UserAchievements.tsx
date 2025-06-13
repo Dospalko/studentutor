@@ -10,7 +10,6 @@ import {
 import { AuthContext } from '@/context/AuthContext';
 import { Achievement, UserAchievement, getAllDefinedAchievements, getMyAchievements } from '@/services/achievementService';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AchievementCriteriaType } from '@/types/study';
 
 // Rozšírený iconMap
 const iconMap: { [key: string]: React.ElementType } = {
@@ -35,6 +34,11 @@ const iconMap: { [key: string]: React.ElementType } = {
     Award, 
     Star, 
     ShieldAlert,
+};
+// POMOCNÁ FUNKCIA PRE FORMÁTOVANIE ENUMOV
+const formatEnumValue = (value: string | undefined | null): string => {
+  if (!value || typeof value !== 'string') return 'N/A'; // Pridaná kontrola pre null/undefined a typ
+  return value.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 };
 
 export default function UserAchievements() {
@@ -109,10 +113,6 @@ export default function UserAchievements() {
           const userAchInstance = achieved ? myAchievements.find(ua => ua.achievement_id === achDef.id) : undefined;
           // Ak icon_name nie je v mape, použi Star ako default
           const IconComponent = (achDef.icon_name && iconMap[achDef.icon_name]) ? iconMap[achDef.icon_name] : Star;
-
-          function formatEnumValue(_criteria_type: AchievementCriteriaType): import("react").ReactNode {
-            throw new Error('Function not implemented.');
-          }
 
           return (
             <TooltipProvider key={achDef.id} delayDuration={100}>

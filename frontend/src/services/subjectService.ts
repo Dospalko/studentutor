@@ -16,6 +16,7 @@ export interface Topic {
 }
 
 export interface Subject {
+  materials: never[];
   id: number;
   name: string;
   description?: string | null;

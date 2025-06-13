@@ -1,14 +1,13 @@
-// frontend/src/components/subjects/details/SubjectHeader.tsx
 "use client";
 
-import { Subject } from "@/services/subjectService";
+import type { Subject } from "@/services/subjectService";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface SubjectHeaderProps {
+interface SubjectHeaderDisplayProps {
   subject: Subject | null;
 }
 
-export default function SubjectHeader({ subject }: SubjectHeaderProps) {
+export default function SubjectHeaderDisplay({ subject }: SubjectHeaderDisplayProps) {
   if (!subject) return null;
 
   return (

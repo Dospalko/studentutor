@@ -17,3 +17,4 @@ class Achievement(Base):
     
     # Vzťah k používateľom, ktorí tento achievement získali
     user_achievements = relationship("UserAchievement", back_populates="achievement")
+    

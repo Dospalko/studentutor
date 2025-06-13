@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime
+# backend/app/db/models/user_achievement.py
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..base import Base
@@ -12,8 +13,6 @@ class UserAchievement(Base):
     achieved_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="achievements")
-    achievement = relationship("Achievement", back_populates="user_achievements")
-    
-    # Môžeš pridať unikátne obmedzenie, aby používateľ nemohol získať rovnaký achievement viackrát
-    # from sqlalchemy.schema import UniqueConstraint
-    # __table_args__ = (UniqueConstraint('user_id', 'achievement_id', name='uq_user_achievement'),)
+    achievement = relationship("Achievement") # Jednosmerný vzťah k detailom achievementu
+
+    __table_args__ = (UniqueConstraint('user_id', 'achievement_id', name='_user_achievement_uc'),)

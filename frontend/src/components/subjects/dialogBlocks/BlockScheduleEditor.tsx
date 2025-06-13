@@ -52,8 +52,11 @@ export default function BlockScheduleEditor({ initialScheduledAt, onSaveSchedule
             initialFocus
           />
           <div className="p-3 border-t border-border">
-            <TimePicker date={tempStart} setDate={setTempStart} />
-          </div>
+          <TimePicker
+                  value={tempStart ?? undefined}
+                  onChange={setTempStart}
+                  className="mt-2"
+                /> </div>
         </PopoverContent>
       </Popover>
       <Button

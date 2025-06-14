@@ -3,16 +3,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
-# NOVÉ IMPORTY
-from ..database import get_db
-from ..dependencies import get_current_active_user
-from ..db import models as db_models # ORM modely
-from ..schemas import subject as subject_schemas # Pydantic schémy pre predmety
-from ..crud import crud_subject # CRUD operácie pre predmety
+from app.database import get_db
+from app.dependencies import get_current_active_user
+from app.db import models as db_models
+from app.schemas import subject as subject_schemas
+from app.crud import crud_subject
+from app.services.achievement_service import check_and_grant_achievements
+from app.db.enums import AchievementCriteriaType
 
 router = APIRouter(
     prefix="/subjects",
-    tags=["subjects"],
+    tags=["Subjects"],
     dependencies=[Depends(get_current_active_user)]
 )
 
@@ -22,7 +23,11 @@ def create_subject_for_user(
     db: Session = Depends(get_db),
     current_user: db_models.User = Depends(get_current_active_user)
 ):
-    return crud_subject.create_subject(db=db, subject=subject, owner_id=current_user.id)
+    created_subject_orm = crud_subject.create_subject(db=db, subject=subject, owner_id=current_user.id)
+    
+    check_and_grant_achievements(db, current_user, AchievementCriteriaType.SUBJECTS_CREATED)
+    
+    return created_subject_orm
 
 @router.get("/", response_model=List[subject_schemas.Subject])
 def read_subjects_for_user(
@@ -63,8 +68,13 @@ def delete_subject_for_user(
     db: Session = Depends(get_db),
     current_user: db_models.User = Depends(get_current_active_user)
 ):
-    # CRUD funkcia by mala vrátiť ORM objekt zmazaného predmetu
     deleted_subject_orm = crud_subject.delete_subject(db, subject_id=subject_id, owner_id=current_user.id)
     if deleted_subject_orm is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subject not found or not authorized to delete")
+    
+    # Po zmazaní prehodnoť achievementy, ktoré mohli byť ovplyvnené znížením počtu predmetov
+    check_and_grant_achievements(db, current_user, AchievementCriteriaType.SUBJECTS_CREATED)
+    # Tiež by to mohlo ovplyvniť achievementy viazané na témy a materiály, ak sú mazané kaskádovo
+    check_and_grant_achievements(db, current_user) # Skontroluj všetky pre istotu
+    
     return deleted_subject_orm

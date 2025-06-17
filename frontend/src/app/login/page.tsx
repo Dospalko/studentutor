@@ -85,7 +85,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-3xl font-bold">
             Vitajte v{" "}
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">TutorAI</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Vedom.io</span>
           </h1>
           <p className="text-muted-foreground mt-2">Prihláste sa a pokračujte vo svojej vzdelávacej ceste</p>
         </div>

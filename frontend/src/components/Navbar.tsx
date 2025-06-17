@@ -30,7 +30,7 @@ export default function Navbar() {
               <BookOpen className="h-4 w-4 text-primary" />
             </div>
             <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-              TutorAI
+              Vedom.io
             </span>
           </div>
           <div className="h-8 w-24 bg-muted/60 rounded-full animate-pulse"></div>
@@ -63,7 +63,7 @@ export default function Navbar() {
             <BookOpen className="h-4 w-4 text-primary" />
           </div>
           <span className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-            TutorAI
+            Vedom.io
           </span>
         </Link>
 

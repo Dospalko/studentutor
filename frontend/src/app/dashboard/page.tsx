@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { 
     Trash2, ExternalLink, BookCopy, AlertCircle, Loader2, PlusCircle, 
-    BookOpenCheck, TrendingUp, Calendar, Target, Sparkles, GraduationCap, Clock 
+    BookOpenCheck, TrendingUp, Target, Sparkles, GraduationCap, Clock 
 } from "lucide-react";
 import { TopicStatus } from '@/types/study';
 
@@ -173,12 +173,7 @@ function DashboardContent() {
                   </form>
                 </DialogContent>
               </Dialog>
-              <Link href="/calendar" passHref> {/* Predpokladaný odkaz na budúcu stránku kalendára */}
-                <Button size="lg" variant="outline" className="group">
-                    <Calendar className="mr-2 h-5 w-5 transition-transform group-hover:scale-110" />
-                    Otvoriť Kalendár
-                </Button>
-              </Link>
+              
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 lg:w-80">

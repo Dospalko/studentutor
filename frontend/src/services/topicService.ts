@@ -9,8 +9,16 @@ export interface Topic {
   subject_id: number;
   user_strengths?: string | null;
   user_weaknesses?: string | null;
-  user_difficulty?: UserDifficulty | null; // Backend očakáva enum hodnotu alebo null
-  status: TopicStatus;
+  user_difficulty?: UserDifficulty | null; // UserDifficulty je tvoj existujúci enum
+  status: TopicStatus; // TopicStatus je tvoj existujúci enum
+  
+  // --- NOVÉ POLIA PRE AI ---
+  ai_difficulty_score?: number | null;    // Napr. 0.0 až 1.0
+  ai_estimated_duration?: number | null; // V minútach
+  // Ak by si chcel ukladať aj AI generované otázky/koncepty
+  // ai_key_concepts?: string[];
+  // ai_practice_questions?: string[];
+  // -------------------------
 }
 
 export interface TopicCreate {

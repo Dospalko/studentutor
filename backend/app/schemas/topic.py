@@ -23,5 +23,7 @@ class Topic(TopicBase):
       subject_id: int
       status: TopicStatus
 
+      ai_difficulty_score: Optional[float] = None
+      ai_estimated_duration: Optional[int] = None
       class Config:
           from_attributes = True

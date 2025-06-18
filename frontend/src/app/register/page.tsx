@@ -90,7 +90,7 @@ export default function RegisterPage() {
           </div>
           <h1 className="text-3xl font-bold">
             Začnite s{" "}
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">TutorAI</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Vedom.io</span>
           </h1>
           <p className="text-muted-foreground mt-2">Vytvorte si účet a začnite svoju vzdelávaciu cestu</p>
         </div>

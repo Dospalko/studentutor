@@ -1,138 +1,223 @@
+
+# =============================
 # backend/app/services/topic_analyzer.py
-from typing import Any, Optional, List, Dict, Union, Tuple
+# =============================
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, ValidationError
+
 from app.db.models.topic import Topic as TopicModel
 from app.db.models.study_material import StudyMaterial as StudyMaterialModel
-from app.services.ai_service.openai_service import client as openai_client # Importuj OpenAI klienta
-import json # Pre prácu s JSON odpoveďou z OpenAI
+from app.services.ai_service.openai_service import client as openai_client
 
-# Funkcia na extrakciu textu (zatiaľ placeholder, nahraď reálnou implementáciou)
+logger = logging.getLogger(__name__)
+
+# -- Nastavenia ---------------------------------------------------------------
+OPENAI_MODEL_NAME = "gpt-3.5-turbo"  # Jediný riadok, kde meníš použitý model
+USER_AI_BLEND_RATIO = 0.5          # 50 % váha pre používateľa, 50 % pre AI
+JSON_PARSE_PATTERN = re.compile(r"\{.*\}", re.DOTALL)  # Regex fallback
+
+# -- Dátové štruktúry ---------------------------------------------------------
+class AIAnalysis(BaseModel):
+    """Štruktúra očakávanej LLM odpovede."""
+
+    difficulty_score: float
+    estimated_duration_minutes: int
+    key_concepts: List[str]
+    practice_questions: List[str]
+
+
+# -- Pomocné funkcie ----------------------------------------------------------
+
 def extract_text_from_material(material: StudyMaterialModel) -> Optional[str]:
+    """Načítaj stručný textový výňatok z materiálu.
+
+    * **text/plain** – vráti title + description uložené v DB.
+    * **pdf** – zatiaľ len placeholder (doplň vlastnú extrakciu).
     """
-    Placeholder funkcia na extrakciu textu z materiálu.
-    V reálnej aplikácii by si tu použil knižnice ako pypdf2, python-docx, atď.
-    alebo by tento text bol už uložený v DB pri nahrávaní súboru.
-    """
-    print(f"Attempting to extract text for: {material.file_name} (Type: {material.file_type})")
-    if material.file_type == "text/plain" and material.file_path:
-        # Toto je veľmi zjednodušené - predpokladá, že file_path je prístupný
-        # a že máme metódu na čítanie obsahu (čo nemáme priamo z tohto modelu)
-        # V reálnom svete by si mal obsah súboru alebo cestu k nemu
-        # a čítal by si ho tu.
-        # Pre demonštráciu vrátime názov a popis, ak existuje.
-        return f"{material.title or ''} {material.description or ''}"
-    elif "pdf" in (material.file_type or ""):
-        # Tu by bola logika pre pypdf2
-        print(f"PDF text extraction for {material.file_name} not yet implemented.")
-        return f"PDF Content: {material.title or ''} {material.description or ''}" # Placeholder
-    # Pridaj ďalšie typy súborov
+
+    logger.debug("Extracting text preview from %s (%s)", material.file_name, material.file_type)
+
+    if material.file_type == "text/plain":
+        return f"{material.title or ''}\n{material.description or ''}".strip()
+
+    if "pdf" in (material.file_type or ""):
+        logger.warning("PDF extraction for %s not implemented", material.file_name)
+        return f"{material.title or ''}\n{material.description or ''}".strip()
+
+    # TODO: DOCX, PPTX, obrázky, …
     return None
 
 
+def _build_prompt(
+    *,
+    topic_name: str,
+    user_strengths: Optional[str],
+    user_weaknesses: Optional[str],
+    user_estimated_difficulty: Optional[float],
+    material_summaries: Optional[str],
+) -> str:
+    """Zostrojí prompt v slovenčine pre OpenAI."""
+
+    parts: List[str] = [f"Analyzuj nasledujúcu študijnú tému: „{topic_name}”."]
+
+    if user_strengths:
+        parts.append(f"Silné stránky používateľa: {user_strengths}.")
+    if user_weaknesses:
+        parts.append(f"Slabé stránky používateľa: {user_weaknesses}.")
+    if user_estimated_difficulty is not None:
+        parts.append(
+            f"Používateľ odhaduje náročnosť na {user_estimated_difficulty:.2f} (škála 0–1)."
+        )
+
+    if material_summaries:
+        parts.append("\nTrimnutý obsah priradených materiálov (do 2000 znak.):")
+        parts.append(material_summaries[:2000])
+
+    parts += [
+        "\nNa základe uvedeného vráť čistý JSON s kľúčmi:",
+        "difficulty_score – float 0‑1",
+        "estimated_duration_minutes – int",
+        "key_concepts – list str",
+        "practice_questions – list str",
+    ]
+
+    return "\n".join(parts)
+
+
+def _blend_difficulty(ai_score: float, user_score: Optional[float]) -> float:
+    """Spojí AI odhad s používateľovým odhadom podľa USER_AI_BLEND_RATIO."""
+
+    if user_score is None:
+        return ai_score
+    return (ai_score * (1 - USER_AI_BLEND_RATIO)) + (user_score * USER_AI_BLEND_RATIO)
+
+
+# -- Verejná API --------------------------------------------------------------
+
 def analyze_topic_with_openai(
+    *,
     topic_name: str,
     user_strengths: Optional[str] = None,
     user_weaknesses: Optional[str] = None,
-    material_texts: Optional[List[str]] = None # Zoznam textov z materiálov
+    user_estimated_difficulty: Optional[float] = None,
+    material_texts: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """
-    Použije OpenAI na analýzu témy a vráti odhadovanú náročnosť, dĺžku a cvičné otázky.
-    """
-    if not openai_client:
-        print("OpenAI client not available. Returning default estimates.")
-        return {
-            "ai_difficulty_score": 0.5, # Default stredná
-            "ai_estimated_duration": 60, # Default 60 minút
-            "generated_questions": [],
-            "error": "OpenAI client not initialized."
-        }
+    """Zavolá OpenAI a vráti normalizovaný slovník s výsledkami."""
 
-    prompt_parts = [f"Analyzuj nasledujúcu študijnú tému: '{topic_name}'."]
-    if user_strengths:
-        prompt_parts.append(f"Používateľ uvádza ako svoje silné stránky k tejto téme: '{user_strengths}'.")
-    if user_weaknesses:
-        prompt_parts.append(f"Používateľ uvádza ako svoje slabé stránky k tejto téme: '{user_weaknesses}'.")
-    
-    if material_texts:
-        combined_material_text = "\n\n".join(material_texts)
-        if combined_material_text.strip(): # Pridaj len ak materiály obsahujú text
-            prompt_parts.append(f"\nK téme sú priradené nasledujúce študijné materiály (výňatok alebo kľúčové body):\n{combined_material_text[:2000]}") # Obmedz dĺžku textu materiálov
-
-    prompt_parts.append("\nNa základe týchto informácií, prosím, poskytni nasledujúce v JSON formáte:")
-    prompt_parts.append("1. 'difficulty_score': Odhadovaná náročnosť témy na škále od 0.0 (veľmi ľahká) do 1.0 (veľmi ťažká). Zohľadni komplexnosť, abstraktnosť a potenciálne predpoklady.")
-    prompt_parts.append("2. 'estimated_duration_minutes': Odhadovaný čas v minútach potrebný na zvládnutie základov tejto témy pre priemerného študenta (rozumné hodnoty, napr. 30-180 minút).")
-    prompt_parts.append("3. 'key_concepts': Zoznam 3-5 kľúčových konceptov alebo podtém, ktoré sú pre túto tému najdôležitejšie (ako list stringov).")
-    prompt_parts.append("4. 'practice_questions': Zoznam 2 jednoduchých cvičných otázok (ako list stringov), ktoré by pomohli overiť pochopenie kľúčových konceptov.")
-    prompt_parts.append("\nOdpoveď formátuj výhradne ako JSON objekt s kľúčmi: difficulty_score, estimated_duration_minutes, key_concepts, practice_questions.")
-    
-    full_prompt = "\n".join(prompt_parts)
-    print(f"\n--- OpenAI Prompt ---\n{full_prompt}\n---------------------\n")
-
-    try:
-        completion = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo", # Alebo novší/vhodnejší model
-            messages=[
-                {"role": "system", "content": "Si expert na analýzu študijných tém a tvorbu edukatívneho obsahu. Tvojou úlohou je poskytnúť štruktúrovanú analýzu v JSON formáte."},
-                {"role": "user", "content": full_prompt}
-            ],
-            temperature=0.3, # Nižšia teplota pre konzistentnejšie odpovede
-            max_tokens=400,
-            response_format={"type": "json_object"} # Ak model podporuje JSON mode
-        )
-        
-        response_content = completion.choices[0].message.content
-        print(f"--- OpenAI Raw Response ---\n{response_content}\n-------------------------\n")
-        
-        if response_content:
-            parsed_response = json.loads(response_content)
-            return {
-                "ai_difficulty_score": parsed_response.get("difficulty_score"),
-                "ai_estimated_duration": parsed_response.get("estimated_duration_minutes"),
-                "key_concepts": parsed_response.get("key_concepts", []),
-                "practice_questions": parsed_response.get("practice_questions", []),
-                "error": None
-            }
-        else:
-            raise ValueError("Empty response from OpenAI")
-
-    except Exception as e:
-        print(f"Error calling OpenAI API: {e}")
+    if openai_client is None:
+        logger.error("OpenAI client missing – returning defaults")
         return {
             "ai_difficulty_score": 0.5,
             "ai_estimated_duration": 60,
             "key_concepts": [],
             "practice_questions": [],
-            "error": str(e)
+            "error": "OpenAI client not initialised",
         }
 
-# Funkcia, ktorú bude volať CRUD
-def update_topic_with_ai_analysis(db_topic: TopicModel, db_materials: Optional[List[StudyMaterialModel]] = None) -> None:
-    """
-    Aktualizuje ORM objekt témy (db_topic) AI odhadmi.
-    Túto funkciu volaj pred db.commit() pre danú tému.
-    """
-    material_texts_list: List[str] = []
-    if db_materials: # Ak sú materiály poskytnuté
-        for mat in db_materials:
-            # Tu by si mal mať logiku na extrakciu textu z `mat.file_path`
-            # Zatiaľ použijeme placeholder funkciu, ktorá môže vrátiť názov/popis
-            text = extract_text_from_material(mat) 
-            if text:
-                material_texts_list.append(text)
-    
-    ai_analysis_result = analyze_topic_with_openai(
-        topic_name=db_topic.name,
-        user_strengths=db_topic.user_strengths,
-        user_weaknesses=db_topic.user_weaknesses,
-        material_texts=material_texts_list if material_texts_list else None
+    prompt = _build_prompt(
+        topic_name=topic_name,
+        user_strengths=user_strengths,
+        user_weaknesses=user_weaknesses,
+        user_estimated_difficulty=user_estimated_difficulty,
+        material_summaries="\n\n".join(material_texts or []).strip(),
     )
 
-    db_topic.ai_difficulty_score = ai_analysis_result.get("ai_difficulty_score")
-    db_topic.ai_estimated_duration = ai_analysis_result.get("ai_estimated_duration")
-    # Kľúčové koncepty a otázky by si mohol ukladať do nových stĺpcov v Topic modeli
-    # alebo do prepojenej tabuľky. Zatiaľ ich neukladáme.
-    # db_topic.ai_key_concepts_json = json.dumps(ai_analysis_result.get("key_concepts"))
-    # db_topic.ai_practice_questions_json = json.dumps(ai_analysis_result.get("practice_questions"))
-    
-    print(f"AI Analysis for Topic ID {db_topic.id if db_topic.id else 'NEW'}: Score={db_topic.ai_difficulty_score}, Duration={db_topic.ai_estimated_duration}")
-    if ai_analysis_result.get("error"):
-        print(f"AI Analysis Error: {ai_analysis_result.get('error')}")
+    try:
+        completion = openai_client.chat.completions.create(
+            model=OPENAI_MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Si expert na analýzu študijných tém a tvorbu edukatívneho obsahu. "
+                        "Vráť výhradne JSON."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+            max_tokens=400,
+            response_format={"type": "json_object"},
+        )
+
+        raw = completion.choices[0].message.content
+        logger.debug("Raw LLM response: %s", raw)
+
+        # --- Robustné parsovanie ------------------------------------------------
+        match = JSON_PARSE_PATTERN.search(raw or "")
+        if not match:
+            raise ValueError("LLM nevrátil JSON objekt")
+
+        parsed: AIAnalysis = AIAnalysis.model_validate_json(match.group())
+
+        return {
+            "ai_difficulty_score": parsed.difficulty_score,
+            "ai_estimated_duration": parsed.estimated_duration_minutes,
+            "key_concepts": parsed.key_concepts,
+            "practice_questions": parsed.practice_questions,
+            "error": None,
+        }
+
+    except (ValidationError, ValueError, json.JSONDecodeError) as exc:
+        logger.exception("Parsing error: %s", exc)
+        return {
+            "ai_difficulty_score": 0.5,
+            "ai_estimated_duration": 60,
+            "key_concepts": [],
+            "practice_questions": [],
+            "error": f"Parsing error: {exc}",
+        }
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.exception("LLM call failed: %s", exc)
+        return {
+            "ai_difficulty_score": 0.5,
+            "ai_estimated_duration": 60,
+            "key_concepts": [],
+            "practice_questions": [],
+            "error": str(exc),
+        }
+
+
+def update_topic_with_ai_analysis(
+    db_topic: TopicModel,
+    db_materials: Optional[List[StudyMaterialModel]] = None,
+) -> None:
+    """Aktualizuje ORM objekt *pred* commitom."""
+
+    material_texts = [
+        preview
+        for m in db_materials or []
+        if (preview := extract_text_from_material(m))
+    ]
+
+    ai = analyze_topic_with_openai(
+        topic_name=db_topic.name,
+        user_strengths=getattr(db_topic, "user_strengths", None),
+        user_weaknesses=getattr(db_topic, "user_weaknesses", None),
+        user_estimated_difficulty=getattr(db_topic, "user_estimated_difficulty", None),
+        material_texts=material_texts or None,
+    )
+
+    # --- Ukladáme výsledky ------------------------------------------------------
+    db_topic.ai_difficulty_score = ai["ai_difficulty_score"]
+    db_topic.ai_estimated_duration = ai["ai_estimated_duration"]
+
+    # Finálny blended score (pridaj stĺpec `difficulty_final` do tabuľky Topic)
+    db_topic.difficulty_final = _blend_difficulty(
+        ai["ai_difficulty_score"], getattr(db_topic, "user_estimated_difficulty", None)
+    )
+
+    # Nepovinné: Ulož si aj key_concepts / practice_questions podľa potreby.
+    # db_topic.ai_key_concepts_json = json.dumps(ai["key_concepts"])
+    # db_topic.ai_practice_questions_json = json.dumps(ai["practice_questions"])
+
+    if ai["error"]:
+        logger.warning("AI analysis returned error for topic %s: %s", db_topic.id or "NEW", ai["error"])
+

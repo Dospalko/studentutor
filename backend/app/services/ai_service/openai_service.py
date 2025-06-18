@@ -1,4 +1,5 @@
 # Napríklad v backend/app/services/openai_service.py (nový súbor)
+from typing import Optional
 from openai import OpenAI
 from app.config import settings
 

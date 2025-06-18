@@ -107,6 +107,7 @@ const StudyPlanSection: FC<Props> = ({
           onUpdateStatus={(id, status) => onUpdateBlock(id, { status })}
           onUpdateNotes={(id, notes) => onUpdateBlock(id, { notes })}
           isUpdating={loading}
+        
         />
       )}
     </Card>

@@ -1,7 +1,7 @@
 # backend/app/crud/crud_study_plan.py
 from sqlalchemy import Tuple
 from sqlalchemy.orm import Session, joinedload, selectinload
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING, Tuple
 from datetime import datetime, timedelta
 
 from app.db import models

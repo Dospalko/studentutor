@@ -8,14 +8,13 @@ import { StudyBlockStatus } from "@/types/study";
 import BlockStatusInfo from "../dialogBlocks/BlockStatusInfo";
 import BlockScheduleEditor from "../dialogBlocks/BlockScheduleEditor";
 import BlockNotesEditor from "../dialogBlocks/BlockNotesEditor";
-import BlockMaterialSelector from "../dialogBlocks/BlockMaterialSelector";
 import BlockActionButtons from "../dialogBlocks/BlockActionButtons";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { BookOpen, Target } from "lucide-react";
-
+// frontend/src/components/subjects/StudyBlockDetailDialog.tsx
 
 interface StudyBlockDetailDialogProps {
   block: StudyBlock | null;
@@ -23,10 +22,10 @@ interface StudyBlockDetailDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onUpdateStatus: (blockId: number, newStatus: StudyBlockStatus) => Promise<void>;
-  onUpdateNotes: (blockId: number, notes: string | null) => Promise<void>; // Povolíme null na vymazanie
-  onUpdateSchedule: (blockId: number, newStart: Date) => Promise<void>;
-  onAssignMaterial?: (blockId: number, materialId: number | null) => Promise<void>;
-  isUpdating: boolean; // Jeden globálny isUpdating pre všetky akcie v dialógu
+  onUpdateNotes: (blockId: number, notes: string | null) => Promise<void>;
+  onUpdateSchedule: (blockId: number, newStart: Date, newEnd?: Date) => Promise<void>; // newEnd je voliteľný
+  // onAssignMaterial?: (blockId: number, materialId: number | null) => Promise<void>; // ODSTRÁNENÝ PROP
+  isUpdating: boolean;
 }
 
 export default function StudyBlockDetailDialog({
@@ -37,14 +36,14 @@ export default function StudyBlockDetailDialog({
   onUpdateStatus,
   onUpdateNotes,
   onUpdateSchedule,
-  onAssignMaterial,
+  // onAssignMaterial, // ODSTRÁNENÉ
   isUpdating,
 }: StudyBlockDetailDialogProps) {
 
   useEffect(() => {
     if (!isOpen) {
-      // Tu môžeš resetovať interné stavy sub-komponentov, ak by to bolo potrebné,
-      // ale lepšie je, aby si sub-komponenty resetovali stavy samy pri zmene `block` propu.
+      // Reset logiky tu nie je nutný, ak sub-komponenty reagujú na zmenu `block` propu
+      // alebo sa dialóg re-mountuje pomocou `key`
     }
   }, [isOpen]);
 
@@ -83,16 +82,18 @@ export default function StudyBlockDetailDialog({
             isUpdating={isUpdating}
           />
           
+          {/* Sekcia pre BlockMaterialSelector je teraz odstránená
           <BlockMaterialSelector
-            subjectId={block.subject_id} // Predpokladáme, že StudyBlock má subject_id
+            subjectId={block.subject_id}
             initialMaterialId={block.material_id}
             onSaveMaterial={
-              onAssignMaterial
+              onAssignMaterial 
                 ? (materialId) => onAssignMaterial(block.id, materialId)
-                : async () => {}
+                : async () => {} // Ak by prop bol voliteľný a neprišiel
             }
             isUpdating={isUpdating}
           />
+          */}
         </div>
 
         <Separator className="my-4" />
@@ -105,7 +106,7 @@ export default function StudyBlockDetailDialog({
             blockId={block.id}
             onUpdateStatus={onUpdateStatus}
             isUpdating={isUpdating}
-            onDialogClose={() => onOpenChange(false)} // Zavrie dialóg po dokončení
+            onDialogClose={() => onOpenChange(false)}
           />
         </DialogFooter>
       </DialogContent>

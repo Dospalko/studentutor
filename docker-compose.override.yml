@@ -1,0 +1,15 @@
+services:
+  backend:
+    volumes:
+      - ./backend/app:/app/app
+      - ./media_uploads:/app/media_files_data
+      - backend_sqlite_data:/app/data
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000

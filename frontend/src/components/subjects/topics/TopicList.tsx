@@ -12,17 +12,9 @@ interface TopicListProps {
   onEditTopic: (topic: Topic) => void
   onDeleteTopic: (topicId: number) => void
   onOpenNewTopicDialog: () => void
-  /** Callback, ktorý znova načíta (refetchne) zoznam tém po akcii „Generuj AI“ */
-  onRefreshTopics: () => void
 }
 
-export default function TopicList({
-  topics,
-  onEditTopic,
-  onDeleteTopic,
-  onOpenNewTopicDialog,
-  onRefreshTopics,        // <- nový prop
-}: TopicListProps) {
+export default function TopicList({ topics, onEditTopic, onDeleteTopic, onOpenNewTopicDialog }: TopicListProps) {
   const sortedTopics = [...topics].sort((a, b) => a.name.localeCompare(b.name))
 
   return (
@@ -64,7 +56,6 @@ export default function TopicList({
                   topic={topic}
                   onEdit={() => onEditTopic(topic)}
                   onDelete={() => onDeleteTopic(topic.id)}
-                  onRefresh={onRefreshTopics}   // <-- posúvame ďalej
                 />
               </div>
             ))}

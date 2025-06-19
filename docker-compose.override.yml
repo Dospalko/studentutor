@@ -5,11 +5,21 @@ services:
       - ./media_uploads:/app/media_files_data
       - backend_sqlite_data:/app/data
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - MEDIA_FILES_BASE_DIR=/app/media_files_data
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      - postgres
 
   frontend:
+    command: npm run dev
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: npm run dev
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - backend

@@ -1,8 +1,10 @@
 # backend/app/dependencies.py
+from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jose import JWTError, jwt # type: ignore
 from sqlalchemy.orm import Session
+from pydantic import ValidationError
 
 # NOVÉ IMPORTY
 from .database import get_db        # Pre databázovú session

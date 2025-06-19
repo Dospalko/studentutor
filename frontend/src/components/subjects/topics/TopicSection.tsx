@@ -1,63 +1,83 @@
-"use client"
+"use client";
 
-import type { Topic, TopicCreate, TopicUpdate } from "@/services/topicService"
-import TopicList from "./TopicList"
-import TopicFormDialog from "./TopicFormDialog"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
+import { FC, useState } from "react";
+import TopicList from "./TopicList";
+import TopicFormDialog from "./TopicFormDialog";
 
-interface TopicSectionProps {
-  topics: Topic[]
-  subjectName: string | undefined
-  error: string | null
+import { Topic, TopicCreate, TopicUpdate } from "@/services/topicService";
+import { useAuth } from "@/hooks/useAuth";
+import { getTopicsForSubject } from "@/services/topicService"; // ak potrebuješ refetch
 
-  isDialogOpen: boolean
-  editingTopic: Topic | null
-  isSubmitting: boolean
-
-  onOpenChangeDialog: (isOpen: boolean) => void
-  onOpenNewDialog: () => void
-  onOpenEditDialog: (topic: Topic) => void
-  onSubmitForm: (data: TopicCreate | TopicUpdate, editingTopicId?: number) => Promise<void>
-  onDeleteTopic: (topicId: number) => void
+interface Props {
+  subjectId: number; // pridáme kvôli refetch
+  topics: Topic[];
+  upsertTopic: (d: TopicCreate | TopicUpdate, id?: number) => Promise<void>;
+  removeTopic: (id: number) => Promise<void>;
+  subjectName?: string;
 }
 
-export default function TopicSection({
-  topics,
+const TopicsSection: FC<Props> = ({
+  subjectId,
+  topics: initial,
+  upsertTopic,
+  removeTopic,
   subjectName,
-  error,
-  isDialogOpen,
-  editingTopic,
-  isSubmitting,
-  onOpenChangeDialog,
-  onOpenNewDialog,
-  onOpenEditDialog,
-  onSubmitForm,
-  onDeleteTopic,
-}: TopicSectionProps) {
+}) => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Topic | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [topics, setTopics] = useState<Topic[]>(initial);
+
+  const { token } = useAuth();
+
+  // lokálne nahradí / pridá tému po AI analýze
+  const handleTopicUpdate = (t: Topic) =>
+    setTopics((prev) => prev.map((p) => (p.id === t.id ? t : p)));
+
+  const handleSubmit = async (d: TopicCreate | TopicUpdate) => {
+    setSubmitting(true);
+    await upsertTopic(d, editing?.id);
+    setSubmitting(false);
+    setDialogOpen(false);
+
+    // refetch celé pole (aby malo ai_* aj pre nové témy)
+    if (token) {
+      const fresh = await getTopicsForSubject(subjectId, token);
+      setTopics(fresh);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    await removeTopic(id);
+    setTopics((p) => p.filter((t) => t.id !== id));
+  };
+
   return (
     <>
-      {error && (
-        <Alert variant="destructive" className="mb-6 border-destructive/20 bg-destructive/5">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Chyba Operácie s Témou</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
       <TopicList
         topics={topics}
-        onEditTopic={onOpenEditDialog}
-        onDeleteTopic={onDeleteTopic}
-        onOpenNewTopicDialog={onOpenNewDialog}
+        onEditTopic={(t) => {
+          setEditing(t);
+          setDialogOpen(true);
+        }}
+        onDeleteTopic={handleDelete}
+        onOpenNewTopicDialog={() => {
+          setEditing(null);
+          setDialogOpen(true);
+        }}
+        onTopicUpdate={handleTopicUpdate}
       />
+
       <TopicFormDialog
-        isOpen={isDialogOpen}
-        onOpenChange={onOpenChangeDialog}
-        editingTopic={editingTopic}
+        isOpen={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editingTopic={editing}
         subjectName={subjectName}
-        onSubmit={onSubmitForm}
-        isSubmitting={isSubmitting}
+        onSubmit={handleSubmit}
+        isSubmitting={submitting}
       />
     </>
-  )
-}
+  );
+};
+
+export default TopicsSection;

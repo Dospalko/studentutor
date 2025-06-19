@@ -1,21 +1,28 @@
-"use client"
+"use client";
 
-import type { Topic } from "@/services/topicService"
-import TopicListItem from "./TopicListItem"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { PlusCircle, BookOpen, Sparkles } from "lucide-react"
+import type { Topic } from "@/services/topicService";
+import TopicListItem from "./TopicListItem";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PlusCircle, BookOpen, Sparkles } from "lucide-react";
 
-interface TopicListProps {
-  topics: Topic[]
-  onEditTopic: (topic: Topic) => void
-  onDeleteTopic: (topicId: number) => void
-  onOpenNewTopicDialog: () => void
+interface Props {
+  topics: Topic[];
+  onEditTopic: (t: Topic) => void;
+  onDeleteTopic: (id: number) => void;
+  onOpenNewTopicDialog: () => void;
+  onTopicUpdate: (t: Topic) => void;
 }
 
-export default function TopicList({ topics, onEditTopic, onDeleteTopic, onOpenNewTopicDialog }: TopicListProps) {
-  const sortedTopics = [...topics].sort((a, b) => a.name.localeCompare(b.name))
+export default function TopicList({
+  topics,
+  onEditTopic,
+  onDeleteTopic,
+  onOpenNewTopicDialog,
+  onTopicUpdate,
+}: Props) {
+  const sorted = [...topics].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <Card className="mb-8 border-muted/40">
@@ -27,10 +34,10 @@ export default function TopicList({ topics, onEditTopic, onDeleteTopic, onOpenNe
             </div>
             <div>
               <CardTitle className="text-2xl font-bold">Témy predmetu</CardTitle>
-              {topics.length > 0 && (
+              {sorted.length > 0 && (
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="outline" className="text-xs">
-                    {topics.length} tém celkom
+                    {sorted.length} tém celkom
                   </Badge>
                 </div>
               )}
@@ -44,18 +51,19 @@ export default function TopicList({ topics, onEditTopic, onDeleteTopic, onOpenNe
       </CardHeader>
 
       <CardContent>
-        {sortedTopics.length > 0 ? (
+        {sorted.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sortedTopics.map((topic, index) => (
+            {sorted.map((t, i) => (
               <div
-                key={topic.id}
+                key={t.id}
                 className="animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both"
-                style={{ animationDelay: `${index * 100}ms` }}
+                style={{ animationDelay: `${i * 100}ms` }}
               >
                 <TopicListItem
-                  topic={topic}
-                  onEdit={() => onEditTopic(topic)}
-                  onDelete={() => onDeleteTopic(topic.id)}
+                  topic={t}
+                  onEdit={() => onEditTopic(t)}
+                  onDelete={() => onDeleteTopic(t.id)}
+                  onTopicUpdate={onTopicUpdate}
                 />
               </div>
             ))}
@@ -71,10 +79,11 @@ export default function TopicList({ topics, onEditTopic, onDeleteTopic, onOpenNe
                   <Sparkles className="w-4 h-4 text-secondary" />
                 </div>
               </div>
-              <h3 className="text-xl font-semibold mb-3">Tento predmet zatiaľ nemá žiadne témy</h3>
+              <h3 className="text-xl font-semibold mb-3">
+                Tento predmet zatiaľ nemá žiadne témy
+              </h3>
               <p className="text-muted-foreground mb-8 leading-relaxed">
-                Začnite pridaním prvej témy, ktorú chcete študovať. Môžete zadať aj svoje silné a slabé stránky pre
-                lepšie plánovanie.
+                Začnite pridaním prvej témy vrátane svojich silných a slabých stránok.
               </p>
               <Button onClick={onOpenNewTopicDialog} size="lg" className="group">
                 <PlusCircle className="mr-2 h-5 w-5 transition-transform group-hover:rotate-90" />
@@ -85,5 +94,5 @@ export default function TopicList({ topics, onEditTopic, onDeleteTopic, onOpenNe
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

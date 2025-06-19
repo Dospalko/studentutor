@@ -28,6 +28,7 @@ const SubjectDetailPageContent = () => {
       <SubjectOverview subject={data.subject} />
 
       <TopicsSection
+        subjectId={id}
         topics={data.topics}
         upsertTopic={data.upsertTopic}
         removeTopic={data.removeTopic}

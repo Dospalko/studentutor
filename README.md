@@ -49,3 +49,6 @@
 
 ```bash
 make dev
+
+
+commit for a day false

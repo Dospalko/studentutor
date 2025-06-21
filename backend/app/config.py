@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     MEDIA_FILES_BASE_DIR: str = os.getenv("MEDIA_FILES_BASE_DIR", "/app/media_files_data")
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    MAIL_FROM: str
+    MAIL_PORT: int
+    MAIL_SERVER: str
+    MAIL_STARTTLS: bool
+    MAIL_SSL_TLS: bool
+    FRONTEND_URL: str
 
     class Config:
         env_file = ".env"

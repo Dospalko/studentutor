@@ -14,3 +14,5 @@ class User(Base):
     # Nový vzťah pre materiály, ktoré používateľ nahral (naprieč všetkými jeho predmetmi)
       study_materials_uploaded = relationship("StudyMaterial", back_populates="owner", cascade="all, delete-orphan")
       achievements = relationship("UserAchievement", back_populates="user", cascade="all, delete-orphan")
+      reset_password_token = Column(String, unique=True, index=True, nullable=True)
+      reset_password_token_expires_at = Column(DateTime(timezone=True), nullable=True)

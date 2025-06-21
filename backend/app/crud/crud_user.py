@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from typing import Optional, TYPE_CHECKING
 
@@ -39,3 +40,25 @@ def update_user_profile(db: Session, db_user_orm_to_update: UserModel, user_upda
     db.commit()
     db.refresh(db_user_orm_to_update)
     return db_user_orm_to_update
+
+
+
+def get_user_by_reset_token(db: Session, token: str) -> Optional[UserModel]:
+    return db.query(UserModel).filter(UserModel.reset_password_token == token).first()
+
+def set_password_reset_token(db: Session, user: UserModel, token: str) -> UserModel:
+    user.reset_password_token = token
+    user.reset_password_token_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+def update_user_password(db: Session, user: UserModel, new_password: str) -> UserModel:
+    user.hashed_password = get_password_hash(new_password)
+    user.reset_password_token = None
+    user.reset_password_token_expires_at = None
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user

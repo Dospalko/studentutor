@@ -10,7 +10,7 @@ from app.dependencies import get_current_active_user
 from app.db.models.user import User as UserModel
 from app.schemas import user as user_schema
 from app.crud import crud_user
-from backend.app.core.email import send_password_reset_email
+from app.core.email import send_password_reset_email
 
 router = APIRouter(
     prefix="/users",

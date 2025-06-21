@@ -15,6 +15,13 @@ class UserUpdate(BaseModel):
       full_name: Optional[str] = None
       is_active: Optional[bool] = None
 
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class PasswordReset(BaseModel):
+    token: str
+    new_password: str
+    
 class User(UserBase):
       id: int
       is_active: bool

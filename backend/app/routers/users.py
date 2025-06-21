@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import timezone
+import datetime
+import secrets
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -7,6 +10,7 @@ from app.dependencies import get_current_active_user
 from app.db.models.user import User as UserModel
 from app.schemas import user as user_schema
 from app.crud import crud_user
+from backend.app.core.email import send_password_reset_email
 
 router = APIRouter(
     prefix="/users",
@@ -56,3 +60,47 @@ def read_user_by_id(
     if db_user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return db_user
+
+
+
+# NOVÉ ENDPOINTY
+@router.post("/password-recovery", status_code=status.HTTP_202_ACCEPTED)
+async def recover_password(
+    payload: user_schema.PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    user = crud_user.get_user_by_email(db, email=payload.email)
+    if user:
+        token = secrets.token_urlsafe(32)
+        crud_user.set_password_reset_token(db, user=user, token=token)
+        background_tasks.add_task(
+            send_password_reset_email,
+            email_to=user.email,
+            name=user.full_name,
+            token=token
+        )
+    # Vždy vráť rovnakú odpoveď, aby si zabránil zisťovaniu existujúcich emailov
+    return {"msg": "If an account with this email exists, a password reset link has been sent."}
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+def reset_password(
+    payload: user_schema.PasswordReset,
+    db: Session = Depends(get_db)
+):
+    user = crud_user.get_user_by_reset_token(db, token=payload.token)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token"
+        )
+
+    if user.reset_password_token_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token has expired"
+        )
+
+    crud_user.update_user_password(db, user=user, new_password=payload.new_password)
+    return {"msg": "Password updated successfully"}

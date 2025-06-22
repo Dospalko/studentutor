@@ -1,175 +1,215 @@
-# backend/app/crud/crud_study_plan.py
-from sqlalchemy import Tuple
-from sqlalchemy.orm import Session, joinedload, selectinload
-from typing import List, Optional, TYPE_CHECKING, Tuple
+"""
+CRUD + plánovač študijných plánov.
+
+Zostali pôvodné funkcie:
+    • get_study_plan
+    • get_active_study_plan_for_subject
+    • create_study_plan_with_blocks
+    • update_study_plan
+    • get_study_block
+    • update_study_block
+
+Refaktor:
+    • robustné logovanie + rollback pri chybách.
+    • generovanie blokov presunuté do _schedule_blocks.
+"""
+
+from __future__ import annotations
+
+import logging
 from datetime import datetime, timedelta
+from typing import List, Optional, TYPE_CHECKING, Tuple
+
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import models
 from app.db.enums import StudyPlanStatus, StudyBlockStatus, TopicStatus
+from app.crud.crud_subject import get_subject
 
-# Import CRUD funkcií
-from .crud_subject import get_subject 
-# get_user_orm by mal byť v crud_user.py
-# from .crud_user import get_user as get_user_orm # Ak ho tu priamo potrebuješ
+if TYPE_CHECKING:  # importy len pre type-checker
+    from app.schemas.study_plan import StudyPlanUpdate, StudyBlockUpdate
 
-if TYPE_CHECKING:
-    from app.schemas.study_plan import StudyPlanUpdate, StudyBlockCreate, StudyBlockUpdate # Pridaj StudyBlockCreate
+logger = logging.getLogger(__name__)
 
+# --------------------------------------------------------------------------- #
+# READ                                                                        #
+# --------------------------------------------------------------------------- #
 def get_study_plan(db: Session, study_plan_id: int, owner_id: int) -> Optional[models.StudyPlan]:
-    plan = db.query(models.StudyPlan).filter(
-        models.StudyPlan.id == study_plan_id,
-        models.StudyPlan.user_id == owner_id
-    ).options(
-        selectinload(models.StudyPlan.study_blocks).selectinload(models.StudyBlock.topic),
-        joinedload(models.StudyPlan.subject) # Načítaj aj predmet plánu
-    ).first()
-    return plan
+    return (
+        db.query(models.StudyPlan)
+        .filter(models.StudyPlan.id == study_plan_id, models.StudyPlan.user_id == owner_id)
+        .options(
+            selectinload(models.StudyPlan.study_blocks).selectinload(models.StudyBlock.topic),
+            joinedload(models.StudyPlan.subject),
+        )
+        .first()
+    )
+
 
 def get_active_study_plan_for_subject(db: Session, subject_id: int, owner_id: int) -> Optional[models.StudyPlan]:
-    plan = db.query(models.StudyPlan).filter(
-        models.StudyPlan.subject_id == subject_id,
-        models.StudyPlan.user_id == owner_id,
-        models.StudyPlan.status == StudyPlanStatus.ACTIVE
-    ).options(
-        selectinload(models.StudyPlan.study_blocks).selectinload(models.StudyBlock.topic),
-        joinedload(models.StudyPlan.subject)
-    ).first()
-    return plan
+    return (
+        db.query(models.StudyPlan)
+        .filter(
+            models.StudyPlan.subject_id == subject_id,
+            models.StudyPlan.user_id == owner_id,
+            models.StudyPlan.status == StudyPlanStatus.ACTIVE,
+        )
+        .options(
+            selectinload(models.StudyPlan.study_blocks).selectinload(models.StudyBlock.topic),
+            joinedload(models.StudyPlan.subject),
+        )
+        .first()
+    )
 
+# --------------------------------------------------------------------------- #
+# HELPERS                                                                     #
+# --------------------------------------------------------------------------- #
+def _schedule_blocks(
+    study_plan: models.StudyPlan, topics: list[models.Topic], start_date: datetime.date
+) -> None:
+    """
+    Naplánuje študijné bloky pre dané témy podľa AI náročnosti
+    (ťažšie témy nechávajú 2-denný rozostup).
+    """
+    date_ptr = start_date
+    for t in topics:
+        duration = t.ai_estimated_duration or 60
+        study_plan.study_blocks.append(
+            models.StudyBlock(
+                scheduled_at=datetime.combine(date_ptr, datetime.min.time()),
+                duration_minutes=duration,
+                status=StudyBlockStatus.PLANNED,
+                topic_id=t.id,
+            )
+        )
+        step = 2 if (t.ai_difficulty_score or 0.5) > 0.7 else 1
+        date_ptr += timedelta(days=step)
+
+# --------------------------------------------------------------------------- #
+# CREATE                                                                      #
+# --------------------------------------------------------------------------- #
 def create_study_plan_with_blocks(
     db: Session,
     subject_id: int,
     owner_id: int,
-    name: Optional[str] = None,
-    force_regenerate: bool = False
-) -> Tuple[Optional[models.StudyPlan], bool]: # Vráti aj flag, či bol plán novo vytvorený
-    
-    # `get_subject` by mal načítať `subject.topics` vďaka selectinload
-    subject = get_subject(db, subject_id=subject_id, owner_id=owner_id)
+    name: str | None = None,
+    force_regenerate: bool = False,
+) -> Tuple[Optional[models.StudyPlan], bool]:
+    """
+    Vytvorí (alebo aktualizuje) študijný plán a vráti (plan, was_new).
+
+    • Ak existuje aktívny plán a `force_regenerate` == False → doplní len nové témy.
+    • `force_regenerate` = True → starý deaktivuje, vytvorí nový.
+    """
+    subject = get_subject(db, subject_id, owner_id)
     if not subject:
         return None, False
 
-    existing_active_plan = get_active_study_plan_for_subject(db, subject_id, owner_id)
-    plan_was_newly_created_or_forced = False
+    try:
+        existing = get_active_study_plan_for_subject(db, subject_id, owner_id)
+        was_new = False
 
-    if existing_active_plan and not force_regenerate:
-        # Logika pre aktualizáciu existujúceho plánu pridaním nových tém
-        planned_topic_ids = {b.topic_id for b in existing_active_plan.study_blocks}
-        newly_added_uncompleted_topics = [
-            t for t in subject.topics 
-            if t.id not in planned_topic_ids and t.status != TopicStatus.COMPLETED
-        ]
-        if newly_added_uncompleted_topics:
-            plan_was_newly_created_or_forced = True # Považujeme za "významnú" zmenu
-            last_scheduled_date = datetime.utcnow().date()
-            if existing_active_plan.study_blocks:
-                valid_dates = [b.scheduled_at.date() for b in existing_active_plan.study_blocks if b.scheduled_at]
-                if valid_dates: last_scheduled_date = max(valid_dates)
-            current_scheduled_date = last_scheduled_date + timedelta(days=1)
+        # --------------------------------------------------------------- #
+        # 1️⃣  len doplniť nové témy do existujúceho plánu                #
+        # --------------------------------------------------------------- #
+        if existing and not force_regenerate:
+            planned_ids = {b.topic_id for b in existing.study_blocks}
+            to_add = [t for t in subject.topics if t.id not in planned_ids and t.status != TopicStatus.COMPLETED]
 
-            for topic_orm_obj in newly_added_uncompleted_topics:
-                duration_minutes = topic_orm_obj.ai_estimated_duration or 60 # Použi AI odhad
-                new_block = models.StudyBlock(
-                    scheduled_at=datetime.combine(current_scheduled_date, datetime.min.time()),
-                    duration_minutes=duration_minutes, 
-                    status=StudyBlockStatus.PLANNED, 
-                    topic_id=topic_orm_obj.id,
+            if to_add:
+                was_new = True
+                last_date = max(
+                    (b.scheduled_at.date() for b in existing.study_blocks),
+                    default=datetime.utcnow().date(),
                 )
-                existing_active_plan.study_blocks.append(new_block)
-                days_to_advance = 1
-                if topic_orm_obj.ai_difficulty_score is not None and topic_orm_obj.ai_difficulty_score > 0.7:
-                    days_to_advance = 2
-                current_scheduled_date += timedelta(days=days_to_advance)
-            
-            db.add(existing_active_plan)
-            db.commit()
-        return get_study_plan(db, existing_active_plan.id, owner_id), plan_was_newly_created_or_forced
+                _schedule_blocks(existing, to_add, last_date + timedelta(days=1))
+                db.commit()
+            return get_study_plan(db, existing.id, owner_id), was_new
 
-    # Vytvorenie nového plánu (alebo vynútené pregenerovanie)
-    if existing_active_plan and force_regenerate:
-        existing_active_plan.status = StudyPlanStatus.ARCHIVED
-        db.add(existing_active_plan)
-        plan_was_newly_created_or_forced = True 
-        # Zatiaľ necommitujeme, commitneme spolu s novým plánom
-    
-    if not existing_active_plan : # Ak neexistoval žiadny aktívny
-        plan_was_newly_created_or_forced = True
+        # --------------------------------------------------------------- #
+        # 2️⃣  pregenerovanie – archivuj starý, priprav nový              #
+        # --------------------------------------------------------------- #
+        if existing and force_regenerate:
+            existing.status = StudyPlanStatus.ARCHIVED
+            db.add(existing)
 
-    plan_name_base = name or f"Študijný plán pre {subject.name}"
-    plan_name = plan_name_base + " (nový)" if force_regenerate and existing_active_plan else plan_name_base
-    
-    db_study_plan = models.StudyPlan(
-        name=plan_name, user_id=owner_id, subject_id=subject_id, status=StudyPlanStatus.ACTIVE
-    )
-    db.add(db_study_plan)
+        name_base = name or f"Študijný plán pre {subject.name}"
+        plan = models.StudyPlan(
+            name=name_base if not existing else f"{name_base} (nový)",
+            user_id=owner_id,
+            subject_id=subject_id,
+            status=StudyPlanStatus.ACTIVE,
+        )
+        db.add(plan)
 
-    # Zoradenie tém podľa AI náročnosti pre nový plán
-    topics_to_plan = sorted(
-        [topic for topic in subject.topics if topic.status != TopicStatus.COMPLETED],
-        key=lambda t: (t.ai_difficulty_score if t.ai_difficulty_score is not None else 0.5)
-    )
-
-    if not topics_to_plan:
+        todo_topics = sorted(
+            [t for t in subject.topics if t.status != TopicStatus.COMPLETED],
+            key=lambda x: x.ai_difficulty_score or 0.5,
+        )
+        _schedule_blocks(plan, todo_topics, datetime.utcnow().date() + timedelta(days=1))
         db.commit()
-        db.refresh(db_study_plan)
-    else:
-        current_scheduled_date = datetime.utcnow().date() + timedelta(days=1)
-        for topic_orm_obj in topics_to_plan:
-            duration_minutes = topic_orm_obj.ai_estimated_duration or 60
-            new_block = models.StudyBlock(
-                scheduled_at=datetime.combine(current_scheduled_date, datetime.min.time()), 
-                duration_minutes=duration_minutes, 
-                status=StudyBlockStatus.PLANNED, 
-                topic_id=topic_orm_obj.id
-            )
-            db_study_plan.study_blocks.append(new_block)
-            days_to_advance = 1
-            if topic_orm_obj.ai_difficulty_score is not None and topic_orm_obj.ai_difficulty_score > 0.7:
-                days_to_advance = 2
-            current_scheduled_date += timedelta(days=days_to_advance)
-        db.commit()
-            
-    return get_study_plan(db, db_study_plan.id, owner_id), plan_was_newly_created_or_forced
+        db.refresh(plan)
+        return plan, True
+    except SQLAlchemyError as exc:
+        logger.exception("Create study plan failed: %s", exc)
+        db.rollback()
+        return None, False
 
-def update_study_plan(db: Session, study_plan_id: int, plan_update: 'StudyPlanUpdate', owner_id: int) -> Optional[models.StudyPlan]:
-    db_plan = get_study_plan(db, study_plan_id, owner_id)
-    if not db_plan: return None
-    update_data = plan_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items(): setattr(db_plan, key, value)
-    db.add(db_plan); db.commit(); db.refresh(db_plan)
-    return get_study_plan(db, db_plan.id, owner_id)
+# --------------------------------------------------------------------------- #
+# UPDATE                                                                      #
+# --------------------------------------------------------------------------- #
+def update_study_plan(db: Session, study_plan_id: int, plan_update: 'StudyPlanUpdate', owner_id: int):
+    plan = get_study_plan(db, study_plan_id, owner_id)
+    if not plan:
+        return None
 
-def get_study_block(db: Session, study_block_id: int, owner_id: int) -> Optional[models.StudyBlock]:
-    return db.query(models.StudyBlock).join(models.StudyPlan).filter(
-        models.StudyBlock.id == study_block_id, models.StudyPlan.user_id == owner_id
-    ).options(joinedload(models.StudyBlock.topic)).first()
-
-def update_study_block(db: Session, study_block_id: int, block_update: 'StudyBlockUpdate', owner_id: int) -> Optional[models.StudyBlock]:
-    db_block = get_study_block(db, study_block_id, owner_id) # Načíta blok aj s témou
-    if not db_block: return None
-    
-    original_topic_status = db_block.topic.status if db_block.topic else None
-    
-    update_data = block_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items(): setattr(db_block, key, value)
-    
-    block_became_completed = False
-    if 'status' in update_data and update_data['status'] == StudyBlockStatus.COMPLETED:
-         if db_block.topic and db_block.topic.status != TopicStatus.COMPLETED:
-             db_block.topic.status = TopicStatus.COMPLETED
-             db.add(db_block.topic)
-             block_became_completed = True # Indikátor pre router, aby zavolal achievement check pre témy
-    
-    db.add(db_block)
+    for k, v in plan_update.model_dump(exclude_unset=True).items():
+        setattr(plan, k, v)
     try:
         db.commit()
-        db.refresh(db_block)
-        if db_block.topic: db.refresh(db_block.topic) # Obnov aj tému, ak bola modifikovaná
-        
-        # Vráť blok spolu s informáciou, či jeho dokončenie zmenilo status témy
-        # Router to potom použije na rozhodnutie, ktoré achievementy kontrolovať
-        # Toto je len návrh, ako by sa to dalo riešiť.
-        # setattr(db_block, '_topic_status_changed_to_completed', block_became_completed and (original_topic_status != TopicStatus.COMPLETED))
-        return get_study_block(db, db_block.id, owner_id) # Vráť plne načítaný blok
-    except Exception as e:
-        db.rollback(); raise e
+        db.refresh(plan)
+        return get_study_plan(db, plan.id, owner_id)
+    except SQLAlchemyError as exc:
+        logger.exception("Update study plan failed: %s", exc)
+        db.rollback()
+        return None
+
+# --------------------------------------------------------------------------- #
+# STUDY BLOCKS                                                                #
+# --------------------------------------------------------------------------- #
+def get_study_block(db: Session, study_block_id: int, owner_id: int) -> Optional[models.StudyBlock]:
+    return (
+        db.query(models.StudyBlock)
+        .join(models.StudyPlan)
+        .filter(models.StudyBlock.id == study_block_id, models.StudyPlan.user_id == owner_id)
+        .options(joinedload(models.StudyBlock.topic))
+        .first()
+    )
+
+
+def update_study_block(
+    db: Session, study_block_id: int, block_update: 'StudyBlockUpdate', owner_id: int
+) -> Optional[models.StudyBlock]:
+    block = get_study_block(db, study_block_id, owner_id)
+    if not block:
+        return None
+
+    update_data = block_update.model_dump(exclude_unset=True)
+    for k, v in update_data.items():
+        setattr(block, k, v)
+
+    # Ak sa blok dokončil → prepnúť status témy na COMPLETED
+    if update_data.get("status") == StudyBlockStatus.COMPLETED and block.topic:
+        block.topic.status = TopicStatus.COMPLETED
+
+    try:
+        db.commit()
+        db.refresh(block)
+        if block.topic:
+            db.refresh(block.topic)
+        return block
+    except SQLAlchemyError as exc:
+        logger.exception("Update study block failed: %s", exc)
+        db.rollback()
+        return None

@@ -13,7 +13,7 @@ from app import file_utils
 from app.database import get_db
 from app.dependencies import get_current_active_user
 from app.services.achievement_service import check_and_grant_achievements
-from backend.app.services.ai_service.materials_summary import summarize_text_with_openai
+from app.services.ai_service.materials_summary import summarize_text_with_openai
 
 router = APIRouter(
     prefix="/subjects/{subject_id}/materials", 
@@ -119,28 +119,46 @@ def delete_material(
 
 
 @material_router.get("/{material_id}/summary", response_model=sm_schema.MaterialSummaryResponse)
-async def get_material_summary_route( # async, lebo OpenAI je I/O operácia
+async def get_material_summary_route(
     material_id: int,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_active_user)
 ):
-    material = crud.get_study_material(db, material_id=material_id, owner_id=current_user.id)
+    material = crud.get_study_material(db, material_id, current_user.id)
     if not material:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+        raise HTTPException(status_code=404, detail="Material not found")
 
+    # 1) Ak už máme súhrn v DB → vráť ho hneď
+    if material.ai_summary or material.ai_summary_error:
+        return sm_schema.MaterialSummaryResponse(
+            material_id=material.id,
+            file_name=material.file_name,
+            summary=material.ai_summary,
+            ai_error=material.ai_summary_error,
+        )
+
+    # 2) Ak nemáme `extracted_text`, nemôžeme súhrn vytvoriť
     if not material.extracted_text:
         return sm_schema.MaterialSummaryResponse(
             material_id=material.id,
             file_name=material.file_name,
             summary=None,
-            ai_error="Text from this material has not been extracted or is empty."
+            ai_error="Text from this material has not been extracted or is empty.",
         )
 
-    ai_result = summarize_text_with_openai(material.extracted_text)
-    
+    # 3) Zavolaj OpenAI
+    ai = summarize_text_with_openai(material.extracted_text)
+
+    # 4) Ulož do DB na budúce použitie
+    material.ai_summary = ai.get("summary")
+    material.ai_summary_error = ai.get("error")
+    db.add(material)
+    db.commit()
+    db.refresh(material)
+
     return sm_schema.MaterialSummaryResponse(
         material_id=material.id,
         file_name=material.file_name,
-        summary=ai_result.get("summary"),
-        ai_error=ai_result.get("error")
+        summary=material.ai_summary,
+        ai_error=material.ai_summary_error,
     )

@@ -276,7 +276,6 @@ export default function StudyMaterialList({
                         ) : (
                           <>
                             <Eye className="h-4 w-4" />
-                            <span className="hidden sm:inline ml-2">Zobraziť</span>
                           </>
                         )}
                       </Button>
@@ -299,7 +298,6 @@ export default function StudyMaterialList({
                         ) : (
                           <>
                             <Download className="h-4 w-4" />
-                            <span className="hidden sm:inline ml-2">Stiahnuť</span>
                           </>
                         )}
                       </Button>
@@ -322,7 +320,6 @@ export default function StudyMaterialList({
                         ) : (
                           <>
                             <Trash2 className="h-4 w-4" />
-                            <span className="hidden sm:inline ml-2">Zmazať</span>
                           </>
                         )}
                       </Button>

@@ -1,5 +1,6 @@
 # backend/app/routers/auth.py
-import datetime
+from datetime import datetime, timezone
+
 import secrets
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -59,6 +60,7 @@ async def recover_password(
     # Vždy vráť rovnakú odpoveď, aby si zabránil zisťovaniu existujúcich emailov
     return {"msg": "If an account with this email exists, a password reset link has been sent."}
 
+
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 def reset_password(
     payload: user_schema.PasswordReset,
@@ -72,7 +74,12 @@ def reset_password(
             detail="Invalid token"
         )
 
-    if user.reset_password_token_expires_at < datetime.now(datetime.timezone.utc):
+    # Zabezpečiť, že je aware
+    token_exp = user.reset_password_token_expires_at
+    if token_exp.tzinfo is None:
+        token_exp = token_exp.replace(tzinfo=timezone.utc)
+
+    if token_exp < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Token has expired"

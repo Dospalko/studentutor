@@ -1,26 +1,48 @@
-"""
-CRUD pre StudyMaterial.
-
-• Zachované funkčné mená (create_study_material, …)
-• Bezpečné transakcie a robustné mazanie súborov.
-"""
-
-from __future__ import annotations
-
-import logging
+# backend/app/crud/crud_study_material.py
+import logging # Pridaj logging
 from pathlib import Path
 from typing import List, Optional
 
 from fastapi import UploadFile
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+import PyPDF2 # Import PyPDF2
+import shutil # Pre shutil.copyfileobj
 
 from app.db.models.study_material import StudyMaterial
 from app.schemas.study_material import StudyMaterialCreate, StudyMaterialUpdate
-from app.crud.crud_subject import get_subject
+from app.crud.crud_subject import get_subject # Predpokladáme správnu cestu
 from app import file_utils
 
 logger = logging.getLogger(__name__)
+
+def _extract_text_from_pdf(file_path_on_disk: Path) -> Optional[str]:
+    """Extrahuj text z PDF súboru."""
+    try:
+        text = ""
+        with file_path_on_disk.open("rb") as pdf_file_obj:
+            pdf_reader = PyPDF2.PdfReader(pdf_file_obj)
+            for page_num in range(len(pdf_reader.pages)):
+                page_obj = pdf_reader.pages[page_num]
+                page_text = page_obj.extract_text()
+                if page_text: # extract_text môže vrátiť None
+                    text += page_text + "\n" 
+        logger.info("Successfully extracted text from PDF: %s", file_path_on_disk.name)
+        return text.strip() if text.strip() else None
+    except Exception as e:
+        logger.error("Error extracting text from PDF %s: %s", file_path_on_disk.name, e, exc_info=True)
+        return None
+
+def _extract_text_from_txt(file_path_on_disk: Path) -> Optional[str]:
+    """Extrahuj text z TXT súboru."""
+    try:
+        with file_path_on_disk.open("r", encoding="utf-8", errors="ignore") as f:
+            text = f.read()
+        logger.info("Successfully extracted text from TXT: %s", file_path_on_disk.name)
+        return text.strip() if text.strip() else None
+    except Exception as e:
+        logger.error("Error extracting text from TXT %s: %s", file_path_on_disk.name, e, exc_info=True)
+        return None
 
 # --------------------------------------------------------------------------- #
 # CREATE                                                                      #

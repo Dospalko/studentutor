@@ -1,3 +1,4 @@
+// frontend/src/services/studyMaterialService.ts
 import { MaterialTypeEnum } from '@/types/study';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -13,6 +14,7 @@ export interface StudyMaterial {
   material_type?: MaterialTypeEnum | null;
   subject_id: number;
   owner_id: number;
+  extracted_text?: string | null; // Pre budúcu AI prácu
 }
 
 export interface StudyMaterialMetadata {
@@ -21,8 +23,11 @@ export interface StudyMaterialMetadata {
   material_type?: MaterialTypeEnum | null;
 }
 
-export interface GeneratePlanOptions {
-  forceRegenerate?: boolean;
+export interface MaterialSummaryResponse {
+    material_id: number;
+    file_name: string;
+    summary: string | null;
+    ai_error: string | null;
 }
 
 export const uploadStudyMaterial = async (
@@ -33,8 +38,8 @@ export const uploadStudyMaterial = async (
 ): Promise<StudyMaterial> => {
   const formData = new FormData();
   formData.append('file', file);
-  if (metadata.title != null) formData.append('title', metadata.title);
-  if (metadata.description != null) formData.append('description', metadata.description);
+  if (metadata.title != null && metadata.title.trim() !== "") formData.append('title', metadata.title.trim());
+  if (metadata.description != null && metadata.description.trim() !== "") formData.append('description', metadata.description.trim());
   if (metadata.material_type != null) formData.append('material_type', metadata.material_type);
 
   const response = await fetch(`${API_BASE_URL}/subjects/${subjectId}/materials/`, {
@@ -43,8 +48,8 @@ export const uploadStudyMaterial = async (
     body: formData,
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to upload' }));
-    throw new Error(errorData.detail || 'Failed to upload study material');
+    const errorData = await response.json().catch(() => ({ detail: 'Nahrávanie súboru zlyhalo' }));
+    throw new Error(errorData.detail || 'Nahrávanie súboru zlyhalo');
   }
   return response.json();
 };
@@ -55,8 +60,8 @@ export const getStudyMaterialsForSubject = async (subjectId: number, token: stri
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch' }));
-    throw new Error(errorData.detail || 'Failed to fetch materials');
+    const errorData = await response.json().catch(() => ({ detail: 'Načítanie materiálov zlyhalo' }));
+    throw new Error(errorData.detail || 'Načítanie materiálov zlyhalo');
   }
   return response.json();
 };
@@ -67,13 +72,13 @@ export const deleteStudyMaterial = async (materialId: number, token: string): Pr
     headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to delete' }));
-    throw new Error(errorData.detail || 'Failed to delete material');
+    const errorData = await response.json().catch(() => ({ detail: 'Zmazanie materiálu zlyhalo' }));
+    throw new Error(errorData.detail || 'Zmazanie materiálu zlyhalo');
   }
-  if (response.status === 204) return { id: materialId } as StudyMaterial;
-  return response.json();
+  return response.json(); 
 };
 
+// fetchProtectedFileAsBlobUrl - použijeme pre zobrazenie PDF
 export const fetchProtectedFileAsBlobUrl = async (
   materialId: number,
   token: string
@@ -84,9 +89,8 @@ export const fetchProtectedFileAsBlobUrl = async (
   });
 
   if (!response.ok) {
-    let errorDetail = `Failed to fetch file. Status: ${response.status}`;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    try { const errorData = await response.json(); errorDetail = errorData.detail || errorDetail; } catch (e) {}
+    let errorDetail = `Nepodarilo sa načítať súbor. Status: ${response.status}`;
+    try { const errorData = await response.json(); errorDetail = errorData.detail || errorDetail; } catch {}
     throw new Error(errorDetail);
   }
   const blob = await response.blob();
@@ -104,14 +108,11 @@ export const downloadProtectedFile = async (
     method: 'GET',
     headers: { 'Authorization': `Bearer ${token}` },
   });
-
   if (!response.ok) {
-    let errorDetail = `Failed to download file. Status: ${response.status}`;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    try { const errorData = await response.json(); errorDetail = errorData.detail || errorDetail; } catch (e) {}
+    let errorDetail = `Sťahovanie súboru zlyhalo. Status: ${response.status}`;
+    try { const errorData = await response.json(); errorDetail = errorData.detail || errorDetail; } catch {}
     throw new Error(errorDetail);
   }
-
   const blob = await response.blob();
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -121,4 +122,16 @@ export const downloadProtectedFile = async (
   a.click();
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
+};
+
+export const getMaterialSummary = async (materialId: number, token: string): Promise<MaterialSummaryResponse> => {
+    const response = await fetch(`${API_BASE_URL}/materials/${materialId}/summary`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Nepodarilo sa získať AI sumarizáciu' }));
+        throw new Error(errorData.detail || 'Nepodarilo sa získať AI sumarizáciu');
+    }
+    return response.json();
 };

@@ -135,3 +135,18 @@ export const getMaterialSummary = async (materialId: number, token: string): Pro
     }
     return response.json();
 };
+export const generateMaterialSummary = async (
+  materialId: number,
+  token: string
+): Promise<MaterialSummaryResponse> => {
+  // voláme rovnaký endpoint; backend by mal summary uložiť/cache-ovať
+  const res = await fetch(`${API_BASE_URL}/materials/${materialId}/summary`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "AI sumarizácia zlyhala" }))
+    throw new Error(err.detail || "AI sumarizácia zlyhala")
+  }
+  return res.json()
+}

@@ -58,12 +58,10 @@ interface StudyMaterialListProps {
 }
 
 type PdfState = {
+  materialId: number
   blobUrl: string
   title: string
   fileType: string | null
-  summary: string | null
-  summaryLoading: boolean
-  summaryError: string | null
 } | null
 
 export default function StudyMaterialList({
@@ -97,14 +95,11 @@ export default function StudyMaterialList({
       const { blobUrl, fileType } = await fetchProtectedFileAsBlobUrl(m.id, token)
 
       if (fileType?.toLowerCase().includes("pdf")) {
-        // inicializuj state so summary loaderom
         setPdfView({
+          materialId: m.id,
           blobUrl,
           title: m.title || m.file_name,
           fileType,
-          summary: null,
-          summaryLoading: true,
-          summaryError: null,
         })
 
         // ️⬇️  Volanie AI sumáru
@@ -343,15 +338,12 @@ export default function StudyMaterialList({
 
       {/* PDF viewer + AI summary */}
       <SimplePdfViewer
-        isOpen={!!pdfView}
-        onOpenChange={(o) => !o && setPdfView(null)}
-        blobUrl={pdfView?.blobUrl ?? null}
-        title={pdfView?.title}
-        /* nové prop-y ↓ */
-        summary={pdfView?.summary}
-        summaryLoading={pdfView?.summaryLoading ?? false}
-        summaryError={pdfView?.summaryError}
-      />
+  isOpen={!!pdfView}
+  onOpenChange={(o) => !o && setPdfView(null)}
+  blobUrl={pdfView?.blobUrl ?? null}
+  title={pdfView?.title}
+  materialId={pdfView?.materialId ?? 0}  
+/>
     </TooltipProvider>
   )
 }

@@ -112,3 +112,34 @@ def delete_material(
     check_and_grant_achievements(db, current_user, AchievementCriteriaType.TOTAL_MATERIALS_UPLOADED)
     
     return deleted_material
+
+
+
+
+
+@material_router.get("/{material_id}/summary", response_model=MaterialSummaryResponse)
+async def get_material_summary_route( # async, lebo OpenAI je I/O operácia
+    material_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_active_user)
+):
+    material = crud.get_study_material(db, material_id=material_id, owner_id=current_user.id)
+    if not material:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
+
+    if not material.extracted_text:
+        return MaterialSummaryResponse(
+            material_id=material.id,
+            file_name=material.file_name,
+            summary=None,
+            ai_error="Text from this material has not been extracted or is empty."
+        )
+
+    ai_result = summarize_text_with_openai(material.extracted_text)
+    
+    return MaterialSummaryResponse(
+        material_id=material.id,
+        file_name=material.file_name,
+        summary=ai_result.get("summary"),
+        ai_error=ai_result.get("error")
+    )

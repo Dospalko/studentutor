@@ -21,6 +21,7 @@ class StudyMaterial(Base):
 
     subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False) # Kto nahral súbor
+    extracted_text = Column(Text, nullable=True) # NOVÝ STĹPEC
 
     subject = relationship("Subject", back_populates="materials")
     owner = relationship("User", back_populates="study_materials_uploaded") # Nový vzťah v User modeli subject = relationship("Subject", back_populates="materials")

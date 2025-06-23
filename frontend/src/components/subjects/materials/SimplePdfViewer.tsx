@@ -13,10 +13,14 @@ import { Badge } from "@/components/ui/badge"
 import { X, FileText, Download, ExternalLink } from 'lucide-react'
 
 interface SimplePdfViewerProps {
+  isOpen: boolean
+  onOpenChange: (o: boolean) => void
   blobUrl: string | null
   title?: string
-  isOpen: boolean
-  onOpenChange: (open: boolean) => void
+  /* nové: */
+  summary?: string | null
+  summaryLoading?: boolean
+  summaryError?: string | null
 }
 
 export default function SimplePdfViewer({

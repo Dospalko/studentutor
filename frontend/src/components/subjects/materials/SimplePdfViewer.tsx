@@ -10,14 +10,14 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { X, FileText, Download, ExternalLink } from 'lucide-react'
+import { X, FileText, Download, ExternalLink, Loader2, Brain } from "lucide-react"
 
 interface SimplePdfViewerProps {
   isOpen: boolean
   onOpenChange: (o: boolean) => void
   blobUrl: string | null
   title?: string
-  /* nové: */
+  /* nové ↓ */
   summary?: string | null
   summaryLoading?: boolean
   summaryError?: string | null
@@ -28,58 +28,58 @@ export default function SimplePdfViewer({
   title,
   isOpen,
   onOpenChange,
+  summary,
+  summaryLoading = false,
+  summaryError = null,
 }: SimplePdfViewerProps) {
   const [effectiveTitle, setEffectiveTitle] = useState("Dokument")
   const [isLoading, setIsLoading] = useState(true)
 
+  /* --------- title & iframe loading --------- */
   useEffect(() => {
-    if (title && title.trim()) {
-      setEffectiveTitle(title)
-    }
+    setEffectiveTitle(title?.trim() || "Dokument")
   }, [title])
 
   useEffect(() => {
     if (isOpen && blobUrl) {
       setIsLoading(true)
-      // Simulate loading time for better UX
-      const timer = setTimeout(() => setIsLoading(false), 1000)
-      return () => clearTimeout(timer)
+      const t = setTimeout(() => setIsLoading(false), 700) // UX micro-delay
+      return () => clearTimeout(t)
     }
   }, [isOpen, blobUrl])
 
   if (!isOpen || !blobUrl) return null
 
+  /* --------- actions --------- */
   const handleDownload = () => {
-    const link = document.createElement("a")
-    link.href = blobUrl
-    link.download = `${effectiveTitle}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    const a = document.createElement("a")
+    a.href = blobUrl
+    a.download = `${effectiveTitle}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
-  const handleOpenInNewTab = () => {
-    window.open(blobUrl, "_blank")
-  }
+  const handleOpenInNewTab = () => window.open(blobUrl, "_blank")
 
+  /* --------- render --------- */
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-6xl h-[95vh] flex flex-col overflow-hidden border-muted/40 shadow-2xl">
-        <DialogHeader className="flex-row items-center justify-between bg-gradient-to-r from-muted/30 to-muted/10 p-4 border-b border-muted/40 rounded-t-lg">
+        {/* ---------- HEADER ---------- */}
+        <DialogHeader className="flex-row items-center justify-between bg-gradient-to-r from-muted/30 to-muted/10 p-4 border-b border-muted/40">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="p-2 rounded-lg bg-primary/10 text-primary">
               <FileText className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="truncate text-lg font-semibold text-foreground">
-                {effectiveTitle}
-              </DialogTitle>
+              <DialogTitle className="truncate text-lg font-semibold">{effectiveTitle}</DialogTitle>
               <Badge variant="outline" className="mt-1 text-xs">
                 PDF Dokument
               </Badge>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -112,22 +112,49 @@ export default function SimplePdfViewer({
           </div>
         </DialogHeader>
 
-        <div className="flex-grow relative bg-background overflow-hidden">
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
-              <div className="flex flex-col items-center gap-4">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-                <p className="text-sm text-muted-foreground">Načítavam dokument...</p>
+        {/* ---------- BODY ---------- */}
+        <div className="flex-grow flex flex-col lg:flex-row bg-background overflow-hidden">
+          {/* left = pdf */}
+          <div className="flex-1 relative bg-background">
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            </div>
-          )}
-          
-          <iframe
-            src={blobUrl}
-            className="w-full h-full border-none rounded-b-lg"
-            title={effectiveTitle}
-            onLoad={() => setIsLoading(false)}
-          />
+            )}
+
+            <iframe
+              src={blobUrl}
+              className="w-full h-full border-none"
+              title={effectiveTitle}
+              onLoad={() => setIsLoading(false)}
+            />
+          </div>
+
+          {/* right = AI summary */}
+          <aside className="lg:w-80 xl:w-96 shrink-0 border-t lg:border-t-0 lg:border-l border-muted/30 p-4 overflow-y-auto">
+            <h4 className="flex items-center gap-2 font-semibold text-foreground mb-2">
+              <Brain className="h-4 w-4" /> AI súhrn
+            </h4>
+
+            {summaryLoading && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generujem súhrn…
+              </p>
+            )}
+
+            {summaryError && (
+              <p className="text-sm text-destructive">{summaryError}</p>
+            )}
+
+            {!summaryLoading && !summaryError && summary && (
+              <p className="text-sm whitespace-pre-wrap leading-relaxed">{summary}</p>
+            )}
+
+            {!summaryLoading && !summaryError && !summary && (
+              <p className="text-sm text-muted-foreground italic">Súhrn nie je k dispozícii.</p>
+            )}
+          </aside>
         </div>
       </DialogContent>
     </Dialog>

@@ -161,3 +161,86 @@ def delete_study_material(db: Session, material_id: int, owner_id: int) -> Optio
         logger.exception("Delete material failed: %s", exc)
         db.rollback()
         return None
+
+
+def extract_text_content_from_file(file_path_on_disk: Path, mime_type: Optional[str]) -> Optional[str]:
+    """Zvolí správnu metódu extrakcie na základe MIME typu alebo koncovky."""
+    effective_mime_type = mime_type
+    if not effective_mime_type:
+        suffix = file_path_on_disk.suffix.lower()
+        if suffix == ".pdf": effective_mime_type = "application/pdf"
+        elif suffix == ".txt": effective_mime_type = "text/plain"
+        # elif suffix == ".docx": effective_mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        else:
+            logger.warning("Unsupported file extension for text extraction: %s", suffix)
+            return None
+    
+    if "pdf" in effective_mime_type:
+        return _extract_text_from_pdf(file_path_on_disk)
+    elif "text/plain" in effective_mime_type:
+        return _extract_text_from_txt(file_path_on_disk)
+    # elif "vnd.openxmlformats-officedocument.wordprocessingml.document" in effective_mime_type:
+    #     return _extract_text_from_docx(file_path_on_disk)
+    else:
+        logger.warning("Unsupported MIME type for text extraction: %s", effective_mime_type)
+        return None
+
+def create_study_material(
+    db: Session,
+    material_meta: StudyMaterialCreate,
+    upload_file: UploadFile,
+    subject_id: int,
+    owner_id: int,
+) -> Optional[StudyMaterial]:
+    subject = get_subject(db, subject_id, owner_id)
+    if not subject:
+        return None
+
+    rel_path_str = str(file_utils.get_relative_file_path(owner_id, subject_id, upload_file.filename))
+    full_path_on_disk: Path = file_utils.get_full_path_on_disk(rel_path_str)
+
+    duplicate = db.query(StudyMaterial).filter(StudyMaterial.file_path == rel_path_str).first()
+    if duplicate:
+        logger.warning("Material duplicate at path: %s", rel_path_str)
+        return None
+
+    tmp_file_path = full_path_on_disk.with_suffix(full_path_on_disk.suffix + ".tmp")
+    file_size = 0
+    extracted_text: Optional[str] = None
+
+    try:
+        file_utils.save_upload_file(upload_file, tmp_file_path)
+        file_size = tmp_file_path.stat().st_size
+
+        # Extrahuj text po uložení do dočasného súboru
+        extracted_text = extract_text_content_from_file(tmp_file_path, upload_file.content_type)
+        
+        tmp_file_path.rename(full_path_on_disk) # Až po úspešnej extrakcii premenuj
+
+        obj = StudyMaterial(
+            title=material_meta.title,
+            description=material_meta.description,
+            material_type=material_meta.material_type,
+            file_name=upload_file.filename,
+            file_path=rel_path_str,
+            file_type=upload_file.content_type,
+            file_size=file_size,
+            extracted_text=extracted_text, # <<<< ULOŽENIE EXTRAHOVANÉHO TEXTU
+            subject_id=subject_id,
+            owner_id=owner_id,
+        )
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
+    except Exception as exc:
+        logger.exception("Create material or text extraction failed: %s", exc)
+        if tmp_file_path.exists(): file_utils.remove_file_from_disk(tmp_file_path)
+        if full_path_on_disk.exists() and not Path(rel_path_str).name == tmp_file_path.name : # Ak sa stihol premenovať pred chybou
+             file_utils.remove_file_from_disk(full_path_on_disk)
+        db.rollback()
+        return None
+    finally:
+        # Uisti sa, že stream súboru je zatvorený, aj keď save_upload_file to už robí
+        if not upload_file.file.closed:
+            upload_file.file.close()

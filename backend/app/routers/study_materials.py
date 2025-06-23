@@ -13,6 +13,7 @@ from app import file_utils
 from app.database import get_db
 from app.dependencies import get_current_active_user
 from app.services.achievement_service import check_and_grant_achievements
+from backend.app.services.ai_service.materials_summary import summarize_text_with_openai
 
 router = APIRouter(
     prefix="/subjects/{subject_id}/materials", 

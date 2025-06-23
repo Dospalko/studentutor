@@ -117,7 +117,7 @@ def delete_material(
 
 
 
-@material_router.get("/{material_id}/summary", response_model=MaterialSummaryResponse)
+@material_router.get("/{material_id}/summary", response_model=sm_schema.MaterialSummaryResponse)
 async def get_material_summary_route( # async, lebo OpenAI je I/O operácia
     material_id: int,
     db: Session = Depends(get_db),
@@ -128,7 +128,7 @@ async def get_material_summary_route( # async, lebo OpenAI je I/O operácia
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
 
     if not material.extracted_text:
-        return MaterialSummaryResponse(
+        return sm_schema.MaterialSummaryResponse(
             material_id=material.id,
             file_name=material.file_name,
             summary=None,
@@ -137,7 +137,7 @@ async def get_material_summary_route( # async, lebo OpenAI je I/O operácia
 
     ai_result = summarize_text_with_openai(material.extracted_text)
     
-    return MaterialSummaryResponse(
+    return sm_schema.MaterialSummaryResponse(
         material_id=material.id,
         file_name=material.file_name,
         summary=ai_result.get("summary"),

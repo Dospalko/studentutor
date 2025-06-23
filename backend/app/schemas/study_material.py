@@ -16,6 +16,12 @@ class StudyMaterialUpdate(StudyMaterialBase):
     # Pri update môžeme chcieť zmeniť len tieto polia
     pass
 
+class MaterialSummaryResponse(BaseModel):
+    material_id: int
+    file_name: str
+    summary: Optional[str] = None
+    ai_error: Optional[str] = None
+    
 class StudyMaterial(StudyMaterialBase): # Pre response z API
     id: int
     file_name: str
@@ -28,3 +34,5 @@ class StudyMaterial(StudyMaterialBase): # Pre response z API
 
     class Config:
         from_attributes = True
+
+

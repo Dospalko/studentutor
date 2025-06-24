@@ -151,17 +151,33 @@ export const generateMaterialSummary = async (
   return res.json()
 }
 
+// ▼ úplne nový helper – LEN číta tagy
+export const fetchMaterialTags = async (materialId: number, token: string): Promise<string[]> => {
+  const res = await fetch(`${API_BASE_URL}/materials/${materialId}/generate-tags?force=false`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    // 204 = prázdny zoznam → vráť []
+    if (res.status === 204) return [];
+    const err = await res.json().catch(() => ({ detail: "Chyba čítania tagov" }));
+    throw new Error(err.detail || "Chyba čítania tagov");
+  }
+  return res.json();
+};
+
+// pôvodný POST na generovanie nechaj, ale volaj s ?force=true
 export const generateMaterialTags = async (
   materialId: number,
   token: string
 ): Promise<string[]> => {
-  const response = await fetch(`${API_BASE_URL}/materials/${materialId}/generate-tags`, {
+  const res = await fetch(`${API_BASE_URL}/materials/${materialId}/generate-tags?force=true`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Nepodarilo sa získať tagy' }));
-    throw new Error(errorData.detail || 'Nepodarilo sa získať tagy');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Tagovanie zlyhalo" }));
+    throw new Error(err.detail || "Tagovanie zlyhalo");
   }
-  return response.json();
+  return res.json();
 };

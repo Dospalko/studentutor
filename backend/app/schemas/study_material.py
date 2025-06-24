@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from app.db.enums import MaterialTypeEnum # Správny import enumov
 
@@ -21,7 +21,7 @@ class MaterialSummaryResponse(BaseModel):
     file_name: str
     summary: Optional[str] = None
     ai_error: Optional[str] = None
-    
+
 class StudyMaterial(StudyMaterialBase): # Pre response z API
     id: int
     file_name: str
@@ -30,6 +30,7 @@ class StudyMaterial(StudyMaterialBase): # Pre response z API
     uploaded_at: datetime
     subject_id: int
     owner_id: int
+    tags: Optional[List[str]] = []
     # file_path sa zvyčajne neposiela na frontend, namiesto toho sa vygeneruje URL na stiahnutie
 
     class Config:

@@ -11,9 +11,9 @@ from app.db.enums import MaterialTypeEnum, AchievementCriteriaType
 from app.schemas import study_material as sm_schema
 from app import file_utils
 from app.database import get_db
-from app.dependencies import get_current_active_user
+from app.dependencies import get_current_active_user, get_current_user
 from app.services.achievement_service import check_and_grant_achievements
-from app.services.ai_service.materials_summary import summarize_text_with_openai
+from app.services.ai_service.materials_summary import extract_tags_from_text, summarize_text_with_openai
 
 router = APIRouter(
     prefix="/subjects/{subject_id}/materials", 
@@ -162,3 +162,18 @@ async def get_material_summary_route(
         summary=material.ai_summary,
         ai_error=material.ai_summary_error,
     )
+
+
+@router.post("/materials/{material_id}/generate-tags", response_model=List[str])
+def generate_material_tags(material_id: int, db: Session = Depends(get_db), user: UserModel = Depends(get_current_user)):
+    material = db.query(StudyMaterial).filter_by(id=material_id).first()
+    if not material or material.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Materiál neexistuje alebo k nemu nemáš prístup.")
+
+    if not material.extracted_text:
+        raise HTTPException(status_code=400, detail="Text na tagovanie neexistuje.")
+
+    tags = extract_tags_from_text(material.extracted_text)
+    material.tags = tags
+    db.commit()
+    return tags

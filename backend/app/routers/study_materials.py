@@ -164,16 +164,23 @@ async def get_material_summary_route(
     )
 
 
-@router.post("/materials/{material_id}/generate-tags", response_model=List[str])
-def generate_material_tags(material_id: int, db: Session = Depends(get_db), user: UserModel = Depends(get_current_user)):
-    material = db.query(StudyMaterial).filter_by(id=material_id).first()
-    if not material or material.owner_id != user.id:
+@material_router.post("/{material_id}/generate-tags", response_model=List[str])
+def generate_tags_for_material(
+    material_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_active_user)
+):
+    material = crud.get_study_material(db, material_id, current_user.id)
+    if not material:
         raise HTTPException(status_code=404, detail="Materiál neexistuje alebo k nemu nemáš prístup.")
 
     if not material.extracted_text:
-        raise HTTPException(status_code=400, detail="Text na tagovanie neexistuje.")
+        raise HTTPException(status_code=400, detail="Chýba extrahovaný text.")
 
     tags = extract_tags_from_text(material.extracted_text)
-    material.tags = tags
-    db.commit()
+    updated = crud.update_material_tags(db, material_id, tags)
+
+    if not updated:
+        raise HTTPException(status_code=500, detail="Nepodarilo sa uložiť tagy.")
+
     return tags

@@ -1,4 +1,5 @@
 # backend/app/routers/study_materials.py
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -164,18 +165,34 @@ async def get_material_summary_route(
     )
 
 
+# helper na deserializáciu z DB textu ↦ list[str]
+def _deserialize_tags(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except Exception:
+        return [t.strip() for t in raw.split(",") if t.strip()]
+
 @material_router.post("/{material_id}/generate-tags", response_model=list[str])
 def generate_tags_for_material(
     material_id: int,
+    force: bool = False,                          #  <-- NOVÉ
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_active_user),
 ):
     material = crud.get_study_material(db, material_id, current_user.id)
     if not material:
-        raise HTTPException(404, "Materiál neexistuje alebo k nemu nemáš prístup.")
+        raise HTTPException(404, "Materiál neexistuje alebo k nemáš prístup.")
     if not material.extracted_text:
         raise HTTPException(400, "Chýba extrahovaný text.")
 
+    # ❶ už uložené tagy
+    existing = _deserialize_tags(material.tags)
+    if existing and not force:
+        return existing
+
+    # ❷ inak generujeme
     tags = extract_tags_from_text(material.extracted_text)
     if not crud.update_material_tags(db, material_id, tags):
         raise HTTPException(500, "Nepodarilo sa uložiť tagy.")

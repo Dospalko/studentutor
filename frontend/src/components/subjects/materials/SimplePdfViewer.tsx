@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { AuthContext } from "@/context/AuthContext";
 import {
+  fetchMaterialTags,
   generateMaterialSummary,
   generateMaterialTags,
 } from "@/services/studyMaterialService";
@@ -48,6 +49,15 @@ export default function SimplePdfViewer({
 
   const [tags, setTags] = useState<string[]>([]);
   const [tagsError, setTagsError] = useState<string | null>(null);
+
+  // ---------- onOpen -------------
+  useEffect(() => {
+    if (!isOpen || !token || !materialId) return;
+    // načítaj už uložené tagy po otvorení
+    fetchMaterialTags(materialId, token)
+      .then(setTags)
+      .catch(() => {}); // ignoruj chybu – buď ešte nie sú
+  }, [isOpen, token, materialId]);
 
   useEffect(() => setEffTitle(title?.trim() || "Dokument"), [title]);
   useEffect(() => {
@@ -121,7 +131,11 @@ export default function SimplePdfViewer({
             <Button variant="ghost" size="icon" onClick={handleOpenNew}>
               <ExternalLink className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -162,7 +176,9 @@ export default function SimplePdfViewer({
               </div>
             )}
             {tagsError && (
-              <p className="text-sm text-destructive">Chyba tagov: {tagsError}</p>
+              <p className="text-sm text-destructive">
+                Chyba tagov: {tagsError}
+              </p>
             )}
 
             {/* TLAČIDLO */}

@@ -1,21 +1,31 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useContext } from "react"
+import { useEffect, useState, useContext } from "react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { X, FileText, Download, ExternalLink, Brain, Loader2 } from "lucide-react"
-import { AuthContext } from "@/context/AuthContext"
-import { generateMaterialSummary } from "@/services/studyMaterialService"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  X,
+  FileText,
+  Download,
+  ExternalLink,
+  Brain,
+  Loader2,
+} from "lucide-react";
+import { AuthContext } from "@/context/AuthContext";
+import { generateMaterialSummary } from "@/services/studyMaterialService";
 
 interface Props {
-  isOpen: boolean
-  onOpenChange: (o: boolean) => void
-  blobUrl: string | null
-  title?: string
-  materialId: number
+  isOpen: boolean;
+  onOpenChange: (o: boolean) => void;
+  blobUrl: string | null;
+  title?: string;
+  materialId: number;
 }
 
 export default function SimplePdfViewer({
@@ -25,53 +35,53 @@ export default function SimplePdfViewer({
   onOpenChange,
   materialId,
 }: Props) {
-  const { token } = useContext(AuthContext) ?? {}
-  const [effTitle, setEffTitle] = useState("Dokument")
-  const [iframeLoading, setIframeLoading] = useState(true)
+  const { token } = useContext(AuthContext) ?? {};
+  const [effTitle, setEffTitle] = useState("Dokument");
+  const [iframeLoading, setIframeLoading] = useState(true);
 
-  const [summary, setSummary] = useState<string | null>(null)
-  const [sumLoading, setSumLoading] = useState(false)
-  const [sumError, setSumError] = useState<string | null>(null)
+  const [summary, setSummary] = useState<string | null>(null);
+  const [sumLoading, setSumLoading] = useState(false);
+  const [sumError, setSumError] = useState<string | null>(null);
 
   /* -------- title / reset -------- */
-  useEffect(() => setEffTitle(title?.trim() || "Dokument"), [title])
+  useEffect(() => setEffTitle(title?.trim() || "Dokument"), [title]);
   useEffect(() => {
     if (!isOpen) {
-      setSummary(null)
-      setSumError(null)
-      setSumLoading(false)
+      setSummary(null);
+      setSumError(null);
+      setSumLoading(false);
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   /* -------- actions -------- */
   const handleDownload = () => {
-    const a = document.createElement("a")
-    a.href = blobUrl ?? ""
-    a.download = `${effTitle}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  }
+    const a = document.createElement("a");
+    a.href = blobUrl ?? "";
+    a.download = `${effTitle}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
-  const handleOpenNew = () => window.open(blobUrl ?? "", "_blank")
+  const handleOpenNew = () => window.open(blobUrl ?? "", "_blank");
 
   const handleGenerateSummary = async () => {
-    if (!token) return alert("Chyba autentifikácie.")
-    setSumLoading(true)
-    setSumError(null)
+    if (!token) return alert("Chyba autentifikácie.");
+    setSumLoading(true);
+    setSumError(null);
     try {
-      const res = await generateMaterialSummary(materialId, token)
-      setSummary(res.summary)
-      if (res.ai_error) setSumError(res.ai_error)
+      const res = await generateMaterialSummary(materialId, token);
+      setSummary(res.summary);
+      if (res.ai_error) setSumError(res.ai_error);
     } catch (e) {
-      setSumError((e as Error).message)
+      setSumError((e as Error).message);
     } finally {
-      setSumLoading(false)
+      setSumLoading(false);
     }
-  }
+  };
 
   /* -------- render guard -------- */
-  if (!isOpen || !blobUrl) return null
+  if (!isOpen || !blobUrl) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -90,18 +100,33 @@ export default function SimplePdfViewer({
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="ghost" size="icon" onClick={handleDownload} title="Stiahnuť">
+          <div className="flex gap-2 items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDownload}
+              title="Stiahnuť"
+            >
               <Download className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleOpenNew} title="Otvoriť v novom okne">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleOpenNew}
+              title="Otvoriť v novom okne"
+            >
               <ExternalLink className="h-4 w-4" />
             </Button>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon" title="Zavrieť">
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
+
+            {/* Ovládané zatváranie cez prop */}
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Zavrieť"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </DialogHeader>
 
@@ -162,5 +187,5 @@ export default function SimplePdfViewer({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -150,3 +150,18 @@ export const generateMaterialSummary = async (
   }
   return res.json()
 }
+
+export const generateMaterialTags = async (
+  materialId: number,
+  token: string
+): Promise<string[]> => {
+  const response = await fetch(`${API_BASE_URL}/materials/${materialId}/generate-tags`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Nepodarilo sa získať tagy' }));
+    throw new Error(errorData.detail || 'Nepodarilo sa získať tagy');
+  }
+  return response.json();
+};

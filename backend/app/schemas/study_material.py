@@ -1,15 +1,21 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, field_validator
-from typing   import List, Optional
-from datetime import datetime
-from app.db.enums import MaterialTypeEnum
+
 import json
+from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.db.enums import MaterialTypeEnum
 
 
+# ───────────────────────────────
+#        SHARED BASE
+# ───────────────────────────────
 class StudyMaterialBase(BaseModel):
-    title: Optional[str]                = Field(None, max_length=255)
-    description: Optional[str]          = None
-    material_type: Optional[MaterialTypeEnum] = None
+    title:         Optional[str]                = Field(None, max_length=255)
+    description:   Optional[str]                = None
+    material_type: Optional[MaterialTypeEnum]   = None
 
 
 class StudyMaterialCreate(StudyMaterialBase):
@@ -20,13 +26,19 @@ class StudyMaterialUpdate(StudyMaterialBase):
     pass
 
 
+# ───────────────────────────────
+#        SUMMARY RESPONSE
+# ───────────────────────────────
 class MaterialSummaryResponse(BaseModel):
     material_id: int
-    file_name:  str
-    summary:    Optional[str] = None
-    ai_error:   Optional[str] = None
+    file_name:   str
+    summary:     Optional[str] = None
+    ai_error:    Optional[str] = None
 
 
+# ───────────────────────────────
+#        MAIN DTO
+# ───────────────────────────────
 class StudyMaterial(StudyMaterialBase):
     id:          int
     file_name:   str
@@ -35,13 +47,14 @@ class StudyMaterial(StudyMaterialBase):
     uploaded_at: datetime
     subject_id:  int
     owner_id:    int
-    tags:        List[str] = []
 
-    # ── deserialize JSON string -> list ────────────────────────────────────
+    tags: List[str] = []  # ← už Python list!
+
+    # DB (TEXT) → Python list
     @field_validator("tags", mode="before")
     @classmethod
     def _deserialize_tags(cls, v):
-        if v is None:
+        if v in (None, ""):
             return []
         if isinstance(v, list):
             return v

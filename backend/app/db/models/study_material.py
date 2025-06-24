@@ -1,6 +1,10 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Enum as SQLAlchemyEnum, ForeignKey
-from sqlalchemy.orm import relationship
 from datetime import datetime
+from sqlalchemy import (
+    Column, Integer, String, Text, DateTime,
+    Enum as SQLAlchemyEnum, ForeignKey,
+)
+from sqlalchemy.orm import relationship
+
 from ..base import Base
 from app.db.enums import MaterialTypeEnum
 
@@ -15,19 +19,21 @@ class StudyMaterial(Base):
     file_size   = Column(Integer, nullable=True)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
-    title        = Column(String, index=True, nullable=True)
-    description  = Column(Text,   nullable=True)
+    # voliteľné meta-info
+    title         = Column(String, index=True, nullable=True)
+    description   = Column(Text,  nullable=True)
     material_type = Column(SQLAlchemyEnum(MaterialTypeEnum, name="material_type_enum"), nullable=True)
 
     subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False)
     owner_id   = Column(Integer, ForeignKey("users.id",    ondelete="CASCADE"), nullable=False)
 
-    extracted_text  = Column(Text, nullable=True)
-    ai_summary      = Column(Text, nullable=True)
-    ai_summary_error = Column(Text, nullable=True)
+    extracted_text    = Column(Text, nullable=True)
+    ai_summary        = Column(Text, nullable=True)
+    ai_summary_error  = Column(Text, nullable=True)
 
-    # !!! SQLite nemá ARRAY -> ukladáme JSON-encoded list do TEXT
-    tags = Column(Text, default="[]")            # ← NEW
+    # ⬇️  JSON-serializovaný list; SQLite nemá ARRAY
+    tags = Column(Text, default="[]")
 
+    # vzťahy
     subject = relationship("Subject", back_populates="materials")
     owner   = relationship("User",    back_populates="study_materials_uploaded")

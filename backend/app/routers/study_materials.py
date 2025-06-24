@@ -1,31 +1,54 @@
 # backend/app/routers/study_materials.py
+from __future__ import annotations
+
 import json
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from pathlib import Path
+from typing import List, Optional
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from pathlib import Path
 
-from app import crud
-from app.db.models.user import User as UserModel 
-from app.db.enums import MaterialTypeEnum, AchievementCriteriaType
-from app.schemas import study_material as sm_schema
-from app import file_utils
+from app import crud, file_utils
 from app.database import get_db
-from app.dependencies import get_current_active_user, get_current_user
+from app.db.enums import AchievementCriteriaType, MaterialTypeEnum
+from app.db.models.user import User as UserModel
+from app.dependencies import get_current_active_user
+from app.schemas import study_material as sm_schema
 from app.services.achievement_service import check_and_grant_achievements
-from app.services.ai_service.materials_summary import extract_tags_from_text, summarize_text_with_openai
+from app.services.ai_service.materials_summary import (
+    extract_tags_from_text,
+    summarize_text_with_openai,
+)
+
+# --------------------------------------------------------------------------- #
+# Routers                                                                     #
+# --------------------------------------------------------------------------- #
 
 router = APIRouter(
-    prefix="/subjects/{subject_id}/materials", 
+    prefix="/subjects/{subject_id}/materials",
     tags=["Study Materials (per Subject)"],
-    dependencies=[Depends(get_current_active_user)]
+    dependencies=[Depends(get_current_active_user)],
 )
+
 material_router = APIRouter(
     prefix="/materials",
     tags=["Study Materials (general)"],
-    dependencies=[Depends(get_current_active_user)]
+    dependencies=[Depends(get_current_active_user)],
 )
+
+# --------------------------------------------------------------------------- #
+# Upload                                                                      #
+# --------------------------------------------------------------------------- #
+
 
 @router.post("/", response_model=sm_schema.StudyMaterial, status_code=status.HTTP_201_CREATED)
 async def upload_material_to_subject(
@@ -35,137 +58,168 @@ async def upload_material_to_subject(
     material_type: Optional[MaterialTypeEnum] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user),
 ):
-    material_meta = sm_schema.StudyMaterialCreate(
-        title=title, description=description, material_type=material_type
+    """POST /subjects/{id}/materials – uloží súbor + meta a vráti záznam."""
+    meta = sm_schema.StudyMaterialCreate(title=title, description=description, material_type=material_type)
+    obj = crud.create_study_material(
+        db=db,
+        material_meta=meta,
+        upload_file=file,
+        subject_id=subject_id,
+        owner_id=current_user.id,
     )
-    db_material = crud.create_study_material(
-        db=db, material_meta=material_meta, upload_file=file,
-        subject_id=subject_id, owner_id=current_user.id
-    )
-    if not db_material:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to upload material.")
-    
+    if not obj:
+        raise HTTPException(400, "Failed to upload material.")
+
+    # achievementy
     check_and_grant_achievements(db, current_user, AchievementCriteriaType.STUDY_MATERIALS_UPLOADED_PER_SUBJECT)
     check_and_grant_achievements(db, current_user, AchievementCriteriaType.TOTAL_MATERIALS_UPLOADED)
-    
-    return db_material
+
+    return obj
+
+
+# --------------------------------------------------------------------------- #
+# List / Detail                                                               #
+# --------------------------------------------------------------------------- #
+
 
 @router.get("/", response_model=List[sm_schema.StudyMaterial])
 def get_materials_for_subject(
     subject_id: int,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user),
 ):
-    materials = crud.get_study_materials_for_subject(db, subject_id=subject_id, owner_id=current_user.id)
-    if materials is None: 
-         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subject not found or no materials available")
-    return materials
+    mats = crud.get_study_materials_for_subject(db, subject_id, current_user.id)
+    if mats is None:
+        raise HTTPException(404, "Subject not found or no materials.")
+    return mats
+
 
 @material_router.get("/{material_id}", response_model=sm_schema.StudyMaterial)
 def get_material_details(
     material_id: int,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user),
 ):
-    material = crud.get_study_material(db, material_id=material_id, owner_id=current_user.id)
-    if not material:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
-    return material
+    mat = crud.get_study_material(db, material_id, current_user.id)
+    if not mat:
+        raise HTTPException(404, "Material not found")
+    return mat
+
+
+# --------------------------------------------------------------------------- #
+# Download                                                                    #
+# --------------------------------------------------------------------------- #
+
 
 @material_router.get("/{material_id}/download")
-async def download_material(
+def download_material(
     material_id: int,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user),
 ):
-    material = crud.get_study_material(db, material_id=material_id, owner_id=current_user.id)
-    if not material:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found or not authorized")
-    file_on_disk = file_utils.MEDIA_ROOT / Path(material.file_path)
-    if not file_on_disk.exists() or not file_on_disk.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on server")
-    return FileResponse(path=str(file_on_disk), filename=material.file_name, media_type=material.file_type or 'application/octet-stream')
+    mat = crud.get_study_material(db, material_id, current_user.id)
+    if not mat:
+        raise HTTPException(404, "Material not found")
+
+    fp: Path = file_utils.MEDIA_ROOT / Path(mat.file_path)
+    if not fp.is_file():
+        raise HTTPException(404, "File not found on server")
+
+    return FileResponse(str(fp), filename=mat.file_name, media_type=mat.file_type or "application/octet-stream")
+
+
+# --------------------------------------------------------------------------- #
+# Update / Delete                                                             #
+# --------------------------------------------------------------------------- #
+
 
 @material_router.put("/{material_id}", response_model=sm_schema.StudyMaterial)
 def update_material_metadata(
     material_id: int,
-    material_update: sm_schema.StudyMaterialUpdate,
+    patch: sm_schema.StudyMaterialUpdate,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user),
 ):
-    updated_material = crud.update_study_material(db, material_id=material_id, material_update=material_update, owner_id=current_user.id)
-    if not updated_material:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found or update failed")
-    return updated_material
+    updated = crud.update_study_material(db, material_id, patch, current_user.id)
+    if not updated:
+        raise HTTPException(404, "Material not found or update failed")
+    return updated
+
 
 @material_router.delete("/{material_id}", response_model=sm_schema.StudyMaterial)
 def delete_material(
     material_id: int,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user),
 ):
-    deleted_material = crud.delete_study_material(db, material_id=material_id, owner_id=current_user.id)
-    if not deleted_material:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found or delete failed")
-    
+    deleted = crud.delete_study_material(db, material_id, current_user.id)
+    if not deleted:
+        raise HTTPException(404, "Material not found or delete failed")
+
     check_and_grant_achievements(db, current_user, AchievementCriteriaType.STUDY_MATERIALS_UPLOADED_PER_SUBJECT)
     check_and_grant_achievements(db, current_user, AchievementCriteriaType.TOTAL_MATERIALS_UPLOADED)
-    
-    return deleted_material
+    return deleted
 
 
-
+# --------------------------------------------------------------------------- #
+# AI - SUMMARY (GET)                                                          #
+# --------------------------------------------------------------------------- #
 
 
 @material_router.get("/{material_id}/summary", response_model=sm_schema.MaterialSummaryResponse)
-async def get_material_summary_route(
+def get_material_summary_route(
     material_id: int,
+    force: bool | None = False,  # ?force=true => vynútime refresh
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user)
+    current_user: UserModel = Depends(get_current_active_user),
 ):
-    material = crud.get_study_material(db, material_id, current_user.id)
-    if not material:
-        raise HTTPException(status_code=404, detail="Material not found")
+    mat = crud.get_study_material(db, material_id, current_user.id)
+    if not mat:
+        raise HTTPException(404, "Material not found")
 
-    # 1) Ak už máme súhrn v DB → vráť ho hneď
-    if material.ai_summary or material.ai_summary_error:
+    # 1) už uložené → vráť (ak force == False)
+    if (mat.ai_summary or mat.ai_summary_error) and not force:
         return sm_schema.MaterialSummaryResponse(
-            material_id=material.id,
-            file_name=material.file_name,
-            summary=material.ai_summary,
-            ai_error=material.ai_summary_error,
+            material_id=mat.id,
+            file_name=mat.file_name,
+            summary=mat.ai_summary,
+            ai_error=mat.ai_summary_error,
         )
 
-    # 2) Ak nemáme `extracted_text`, nemôžeme súhrn vytvoriť
-    if not material.extracted_text:
+    # 2) bez textu nevieme generovať
+    if not mat.extracted_text:
         return sm_schema.MaterialSummaryResponse(
-            material_id=material.id,
-            file_name=material.file_name,
+            material_id=mat.id,
+            file_name=mat.file_name,
             summary=None,
-            ai_error="Text from this material has not been extracted or is empty.",
+            ai_error="Text from this material has not been extracted.",
         )
 
-    # 3) Zavolaj OpenAI
-    ai = summarize_text_with_openai(material.extracted_text)
+    # 3) OpenAI
+    ai = summarize_text_with_openai(mat.extracted_text)
 
-    # 4) Ulož do DB na budúce použitie
-    material.ai_summary = ai.get("summary")
-    material.ai_summary_error = ai.get("error")
-    db.add(material)
+    # 4) uložíme do DB
+    mat.ai_summary = ai.get("summary")
+    mat.ai_summary_error = ai.get("error")
+    db.add(mat)
     db.commit()
-    db.refresh(material)
+    db.refresh(mat)
 
     return sm_schema.MaterialSummaryResponse(
-        material_id=material.id,
-        file_name=material.file_name,
-        summary=material.ai_summary,
-        ai_error=material.ai_summary_error,
+        material_id=mat.id,
+        file_name=mat.file_name,
+        summary=mat.ai_summary,
+        ai_error=mat.ai_summary_error,
     )
 
 
-# helper na deserializáciu z DB textu ↦ list[str]
+# --------------------------------------------------------------------------- #
+# AI - TAGS (POST)                                                            #
+# --------------------------------------------------------------------------- #
+
+# pomocná funkcia na JSON→list
 def _deserialize_tags(raw: str | None) -> list[str]:
     if not raw:
         return []
@@ -174,26 +228,41 @@ def _deserialize_tags(raw: str | None) -> list[str]:
     except Exception:
         return [t.strip() for t in raw.split(",") if t.strip()]
 
-@material_router.post("/{material_id}/generate-tags", response_model=list[str])
-def generate_tags_for_material(
+
+@material_router.get("/{material_id}/tags", response_model=list[str])
+def fetch_material_tags(
     material_id: int,
-    force: bool = False,                          #  <-- NOVÉ
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_active_user),
 ):
-    material = crud.get_study_material(db, material_id, current_user.id)
-    if not material:
-        raise HTTPException(404, "Materiál neexistuje alebo k nemáš prístup.")
-    if not material.extracted_text:
-        raise HTTPException(400, "Chýba extrahovaný text.")
+    mat = crud.get_study_material(db, material_id, current_user.id)
+    if not mat:
+        raise HTTPException(404, "Material not found")
+    return _deserialize_tags(mat.tags)
 
-    # ❶ už uložené tagy
-    existing = _deserialize_tags(material.tags)
+
+@material_router.post("/{material_id}/generate-tags", response_model=list[str])
+def generate_tags_for_material(
+    material_id: int,
+    force: bool | None = False,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_active_user),
+):
+    mat = crud.get_study_material(db, material_id, current_user.id)
+    if not mat:
+        raise HTTPException(404, "Material not found")
+    if not mat.extracted_text:
+        raise HTTPException(400, "No extracted text for tagging.")
+
+    # 1) už existujú
+    existing = _deserialize_tags(mat.tags)
     if existing and not force:
         return existing
 
-    # ❷ inak generujeme
-    tags = extract_tags_from_text(material.extracted_text)
+    # 2) OpenAI
+    tags = extract_tags_from_text(mat.extracted_text)
+
+    # 3) uloženie
     if not crud.update_material_tags(db, material_id, tags):
-        raise HTTPException(500, "Nepodarilo sa uložiť tagy.")
+        raise HTTPException(500, "Failed to save tags.")
     return tags

@@ -13,6 +13,7 @@ from app.db.models.study_material import StudyMaterial
 from app.schemas.study_material import StudyMaterialCreate, StudyMaterialUpdate
 from app.crud.crud_subject import get_subject # Predpokladáme správnu cestu
 from app import file_utils
+from app.db import models
 
 logger = logging.getLogger(__name__)
 
@@ -244,3 +245,14 @@ def create_study_material(
         # Uisti sa, že stream súboru je zatvorený, aj keď save_upload_file to už robí
         if not upload_file.file.closed:
             upload_file.file.close()
+
+
+def update_material_tags(db: Session, material_id: int, tags: List[str]) -> Optional[models.StudyMaterial]:
+    material = db.query(models.StudyMaterial).filter(models.StudyMaterial.id == material_id).first()
+    if not material:
+        return None
+    material.tags = tags
+    db.add(material)
+    db.commit()
+    db.refresh(material)
+    return material

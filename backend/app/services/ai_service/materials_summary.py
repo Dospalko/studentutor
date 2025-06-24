@@ -1,79 +1,124 @@
+# ==============================================
+# app/services/ai_service/materials_summary.py
+# ==============================================
+from __future__ import annotations
 
 from typing import Any, Dict, List
+import json
+import logging
 
-from fastapi import logger
-from app.services.ai_service.openai_service import client as openai_client # Uisti sa, že tento import funguje
+from app.services.ai_service.openai_service import client as openai_client  # musí existovať
+
+logger = logging.getLogger(__name__)
+
+MAX_TEXT_FOR_SUMMARY = 8_000        # max. znakov poslaných do LLM
+MAX_TEXT_FOR_TAGS    = 5_000        # max. znakov poslaných do LLM pre tagy
 
 
-MAX_TEXT_FOR_SUMMARY = 8000 # Koľko znakov z extrahovaného textu pošleme na sumarizáciu
+# --------------------------------------------------------------------------- #
+# SUMMARIZATION                                                               #
+# --------------------------------------------------------------------------- #
 def summarize_text_with_openai(text_content: str, max_length: int = 150) -> Dict[str, Any]:
     """
-    Vygeneruje kľúčové body + sumarizáciu pre daný text pomocou OpenAI.
-    max_length je cieľová dĺžka sumarizácie v slovách.
+    Vráti slovník:
+        { "summary": str | None, "error": str | None }
+    Formát výstupu je – bullet-pointy + „Sumarizácia:“ blok.
     """
-    if not openai_client:
-        return {"summary": None, "error": "OpenAI client not initialized."}
-    if not text_content or not text_content.strip():
-        return {"summary": None, "error": "No content provided for summarization."}
+    if openai_client is None:
+        return {"summary": None, "error": "OpenAI client not initialised."}
+
+    text_content = (text_content or "").strip()
+    if not text_content:
+        return {"summary": None, "error": "Empty text – nothing to summarise."}
 
     prompt = f"""
-    Nasleduje text zo študijného materiálu. Tvojou úlohou je:
-    1. Vytvoriť 2 až 3 kľúčové myšlienky ako bullet pointy (krátke a vecné).
-    2. Potom vytvoriť stručnú sumarizáciu textu v slovenčine.
-    
-    Dĺžka sumarizácie: približne {max_length} slov.
+Nasleduje text zo študijného materiálu. Tvojou úlohou je:
+1. Vytvoriť 2–3 kľúčové myšlienky ako bullet-pointy (stručné, vecné).
+2. Potom napísať súvislú sumarizáciu v slovenčine (cca {max_length} slov).
 
-    Text na spracovanie:
-    ---
-    {text_content[:MAX_TEXT_FOR_SUMMARY]}
-    ---
-    
-    Výstup:
-    • Kľúčová myšlienka 1  
-    • Kľúčová myšlienka 2  
-    • (voliteľná) Kľúčová myšlienka 3  
-    
-    Sumarizácia:
-    """
+Formát výstupu:
+• Kľúčová myšlienka 1
+• Kľúčová myšlienka 2
+• (voliteľne) Kľúčová myšlienka 3
+
+Sumarizácia:
+<text>
+
+Text na spracovanie:
+---
+{text_content[:MAX_TEXT_FOR_SUMMARY]}
+---
+"""
+
     try:
         completion = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Si AI asistent špecializovaný na sumarizáciu a extrakciu kľúčových bodov z textov."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": (
+                        "Si AI asistent špecializovaný na edukatívne sumarizácie "
+                        "a extrakciu kľúčových bodov."
+                    ),
+                },
+                {"role": "user", "content": prompt},
             ],
             temperature=0.3,
-            max_tokens=400  # zvýšené pre kľúčové body + sumár
+            max_tokens=400,
         )
-        summary = completion.choices[0].message.content
-        return {"summary": summary.strip() if summary else None, "error": None}
-    except Exception as e:
-        logger.error("Error calling OpenAI API for summarization: %s", e, exc_info=True)
-        return {"summary": None, "error": str(e)}
-    
-def extract_tags_from_text(text_content: str) -> List[str]:
-    prompt = f"""
-    Na základe nasledujúceho študijného textu identifikuj 3 až 5 relevantných tagov (kľúčových slov) v slovenčine.
-    Výstup vráť ako zoznam hashtagov (napr. #biológia, #dejiny, #výpočty).
+        raw = (completion.choices[0].message.content or "").strip()
+        return {"summary": raw if raw else None, "error": None}
 
-    Text:
-    ---
-    {text_content[:5000]}
-    ---
+    except Exception as exc:  # pragma: no cover – zachytí aj sieťové chyby
+        logger.error("OpenAI summarization failed: %s", exc, exc_info=True)
+        return {"summary": None, "error": str(exc)}
+
+
+# --------------------------------------------------------------------------- #
+# TAG EXTRACTION                                                              #
+# --------------------------------------------------------------------------- #
+def extract_tags_from_text(text_content: str) -> List[str]:
     """
+    Vráti zoznam tagov BEZ # (napr. ["biológia", "dejiny"]).
+    Ak zlyhá – vráti prázdny list.
+    """
+    if openai_client is None:
+        logger.warning("OpenAI client not initialised – cannot extract tags.")
+        return []
+
+    text_content = (text_content or "").strip()
+    if not text_content:
+        return []
+
+    prompt = f"""
+Z nasledujúceho textu vyber 3–5 najrelevantnejších tagov v slovenčine.
+Výstup VÝHRADNE ako čiarkou oddelený zoznam hashtagov (bez dodatkových viet), napr.:
+#biológia, #dejiny, #výpočty
+
+Text:
+---
+{text_content[:MAX_TEXT_FOR_TAGS]}
+---
+"""
+
     try:
-        response = openai_client.chat.completions.create(
+        completion = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Si AI asistent na kategorizovanie študijných materiálov."},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": "Si AI na kategorizovanie študijných materiálov."},
+                {"role": "user", "content": prompt},
             ],
             temperature=0.4,
             max_tokens=100,
         )
-        raw_tags = response.choices[0].message.content.strip()
-        tags = [tag.strip().lstrip('#') for tag in raw_tags.split(',') if tag.strip()]
-        return tags
-    except Exception as e:
-        logger.error(f"Tag extraction failed: {e}")
+        raw = (completion.choices[0].message.content or "").strip()
+
+        # Split podľa , alebo \n a odstráň #
+        tags = [t.strip().lstrip("#") for t in raw.replace("\n", ",").split(",") if t.strip()]
+        # odstráň duplicitné & prázdne
+        unique_tags = list(dict.fromkeys([t for t in tags if t]))
+
+        return unique_tags
+    except Exception as exc:  # pragma: no cover
+        logger.error("Tag extraction failed: %s", exc, exc_info=True)
         return []

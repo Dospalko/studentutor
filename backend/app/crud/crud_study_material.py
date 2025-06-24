@@ -1,4 +1,5 @@
 # backend/app/crud/crud_study_material.py
+import json
 import logging # Pridaj logging
 from pathlib import Path
 from typing import List, Optional
@@ -247,12 +248,41 @@ def create_study_material(
             upload_file.file.close()
 
 
-def update_material_tags(db: Session, material_id: int, tags: List[str]) -> Optional[models.StudyMaterial]:
-    material = db.query(models.StudyMaterial).filter(models.StudyMaterial.id == material_id).first()
-    if not material:
-        return None
-    material.tags = tags
-    db.add(material)
-    db.commit()
-    db.refresh(material)
-    return material
+def update_material_tags(db: Session, material_id: int, tags: List[str]) -> bool:
+    """
+    Uloží / prepíše tagy do stĺpca `tags` (ako JSON-encoded text).
+    • Vráti True pri úspechu, False pri chybe / neexistencii materiálu.
+    """
+    obj = db.query(StudyMaterial).filter(StudyMaterial.id == material_id).first()
+    if not obj:
+        return False
+
+    # SQLite nemá natívny ARRAY; uložme JSON-encoded list do TEXT-u.
+    try:
+        obj.tags = json.dumps(tags, ensure_ascii=False)
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return True
+    except SQLAlchemyError as exc:  # pragma: no cover
+        logger.exception("Saving tags failed: %s", exc)
+        db.rollback()
+        return False
+
+
+# ------------- PRI ČÍTANÍ / SERIALIZÁCII ------------------------------------
+def _deserialize_tags(raw: str | None) -> List[str]:
+    """
+    Pomôcka: zo STRING (JSON/List/CSV) -> list[str].
+    """
+    if raw is None:
+        return []
+    try:
+        if raw.startswith("["):
+            return json.loads(raw)
+        if "," in raw:
+            return [t.strip() for t in raw.split(",") if t.strip()]
+        return [raw.strip()]
+    except Exception:  # pragma: no cover
+        return []
+

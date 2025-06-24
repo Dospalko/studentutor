@@ -5,7 +5,7 @@ import {
   type StudyMaterial,
   fetchProtectedFileAsBlobUrl,
   downloadProtectedFile,
-  getMaterialSummary,
+  fetchMaterialSummary,
 } from "@/services/studyMaterialService"
 import { AuthContext } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -104,7 +104,7 @@ export default function StudyMaterialList({
 
         // ️⬇️  Volanie AI sumáru
         try {
-          const res = await getMaterialSummary(m.id, token)
+          const res = await fetchMaterialSummary(m.id, token)
           setPdfView((s) =>
             s
               ? {

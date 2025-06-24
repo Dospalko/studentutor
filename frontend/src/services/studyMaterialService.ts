@@ -1,8 +1,10 @@
 // frontend/src/services/studyMaterialService.ts
-import { MaterialTypeEnum } from '@/types/study';
+import { MaterialTypeEnum } from "@/types/study";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+/* ---------------- Typy -------------------------------------------------- */
 export interface StudyMaterial {
   id: number;
   file_name: string;
@@ -14,7 +16,7 @@ export interface StudyMaterial {
   material_type?: MaterialTypeEnum | null;
   subject_id: number;
   owner_id: number;
-  extracted_text?: string | null; // Pre budúcu AI prácu
+  extracted_text?: string | null;
 }
 
 export interface StudyMaterialMetadata {
@@ -24,160 +26,113 @@ export interface StudyMaterialMetadata {
 }
 
 export interface MaterialSummaryResponse {
-    material_id: number;
-    file_name: string;
-    summary: string | null;
-    ai_error: string | null;
+  material_id: number;
+  file_name: string;
+  summary: string | null;
+  ai_error: string | null;
 }
 
+/* ---------------- Helper ------------------------------------------------ */
+async function fetchJson<T>(
+  url: string,
+  token: string,
+  init: RequestInit = {}
+): Promise<T> {
+  const res = await fetch(API_BASE_URL + url, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/* ---------------- CRUD upload / list / delete -------------------------- */
 export const uploadStudyMaterial = async (
   subjectId: number,
   file: File,
-  metadata: StudyMaterialMetadata,
+  meta: StudyMaterialMetadata,
   token: string
 ): Promise<StudyMaterial> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  if (metadata.title != null && metadata.title.trim() !== "") formData.append('title', metadata.title.trim());
-  if (metadata.description != null && metadata.description.trim() !== "") formData.append('description', metadata.description.trim());
-  if (metadata.material_type != null) formData.append('material_type', metadata.material_type);
+  const fd = new FormData();
+  fd.append("file", file);
+  if (meta.title) fd.append("title", meta.title.trim());
+  if (meta.description) fd.append("description", meta.description.trim());
+  if (meta.material_type) fd.append("material_type", meta.material_type);
 
-  const response = await fetch(`${API_BASE_URL}/subjects/${subjectId}/materials/`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` },
-    body: formData,
+  return fetchJson<StudyMaterial>(`/subjects/${subjectId}/materials/`, token, {
+    method: "POST",
+    body: fd,
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Nahrávanie súboru zlyhalo' }));
-    throw new Error(errorData.detail || 'Nahrávanie súboru zlyhalo');
-  }
-  return response.json();
-};
-   
-export const getStudyMaterialsForSubject = async (subjectId: number, token: string): Promise<StudyMaterial[]> => {
-  const response = await fetch(`${API_BASE_URL}/subjects/${subjectId}/materials/`, {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Načítanie materiálov zlyhalo' }));
-    throw new Error(errorData.detail || 'Načítanie materiálov zlyhalo');
-  }
-  return response.json();
 };
 
-export const deleteStudyMaterial = async (materialId: number, token: string): Promise<StudyMaterial> => {
-  const response = await fetch(`${API_BASE_URL}/materials/${materialId}`, {
-    method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Zmazanie materiálu zlyhalo' }));
-    throw new Error(errorData.detail || 'Zmazanie materiálu zlyhalo');
-  }
-  return response.json(); 
-};
-
-// fetchProtectedFileAsBlobUrl - použijeme pre zobrazenie PDF
-export const fetchProtectedFileAsBlobUrl = async (
-  materialId: number,
+export const getStudyMaterialsForSubject = (
+  subjectId: number,
   token: string
-): Promise<{ blobUrl: string, fileType: string | null }> => {
-  const response = await fetch(`${API_BASE_URL}/materials/${materialId}/download`, {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+) =>
+  fetchJson<StudyMaterial[]>(
+    `/subjects/${subjectId}/materials/`,
+    token
+  );
 
-  if (!response.ok) {
-    let errorDetail = `Nepodarilo sa načítať súbor. Status: ${response.status}`;
-    try { const errorData = await response.json(); errorDetail = errorData.detail || errorDetail; } catch {}
-    throw new Error(errorDetail);
-  }
-  const blob = await response.blob();
-  const blobUrl = window.URL.createObjectURL(blob);
-  const fileType = response.headers.get('content-type');
-  return { blobUrl, fileType };
+export const deleteStudyMaterial = (id: number, token: string) =>
+  fetchJson<StudyMaterial>(`/materials/${id}`, token, { method: "DELETE" });
+
+/* ---------------- Download helpers ------------------------------------- */
+export const fetchProtectedFileAsBlobUrl = async (
+  id: number,
+  token: string
+): Promise<{ blobUrl: string; fileType: string | null }> => {
+  const res = await fetch(API_BASE_URL + `/materials/${id}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Download failed");
+  const blob = await res.blob();
+  return {
+    blobUrl: URL.createObjectURL(blob),
+    fileType: res.headers.get("content-type"),
+  };
 };
 
 export const downloadProtectedFile = async (
-  materialId: number,
-  filenameToSave: string,
+  id: number,
+  filename: string,
   token: string
-): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/materials/${materialId}/download`, {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
-  if (!response.ok) {
-    let errorDetail = `Sťahovanie súboru zlyhalo. Status: ${response.status}`;
-    try { const errorData = await response.json(); errorDetail = errorData.detail || errorDetail; } catch {}
-    throw new Error(errorDetail);
-  }
-  const blob = await response.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filenameToSave;
+) => {
+  const { blobUrl } = await fetchProtectedFileAsBlobUrl(id, token);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
+  URL.revokeObjectURL(blobUrl);
 };
 
-export const getMaterialSummary = async (materialId: number, token: string): Promise<MaterialSummaryResponse> => {
-    const response = await fetch(`${API_BASE_URL}/materials/${materialId}/summary`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Nepodarilo sa získať AI sumarizáciu' }));
-        throw new Error(errorData.detail || 'Nepodarilo sa získať AI sumarizáciu');
-    }
-    return response.json();
-};
-export const generateMaterialSummary = async (
-  materialId: number,
+/* ---------------- AI – summary ----------------------------------------- */
+export const fetchMaterialSummary = (
+  id: number,
   token: string
-): Promise<MaterialSummaryResponse> => {
-  // voláme rovnaký endpoint; backend by mal summary uložiť/cache-ovať
-  const res = await fetch(`${API_BASE_URL}/materials/${materialId}/summary`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "AI sumarizácia zlyhala" }))
-    throw new Error(err.detail || "AI sumarizácia zlyhala")
-  }
-  return res.json()
-}
+) => fetchJson<MaterialSummaryResponse>(`/materials/${id}/summary`, token);
 
-// ▼ úplne nový helper – LEN číta tagy
-export const fetchMaterialTags = async (materialId: number, token: string): Promise<string[]> => {
-  const res = await fetch(`${API_BASE_URL}/materials/${materialId}/generate-tags?force=false`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    // 204 = prázdny zoznam → vráť []
-    if (res.status === 204) return [];
-    const err = await res.json().catch(() => ({ detail: "Chyba čítania tagov" }));
-    throw new Error(err.detail || "Chyba čítania tagov");
-  }
-  return res.json();
-};
-
-// pôvodný POST na generovanie nechaj, ale volaj s ?force=true
-export const generateMaterialTags = async (
-  materialId: number,
+export const generateMaterialSummary = (
+  id: number,
   token: string
-): Promise<string[]> => {
-  const res = await fetch(`${API_BASE_URL}/materials/${materialId}/generate-tags?force=true`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Tagovanie zlyhalo" }));
-    throw new Error(err.detail || "Tagovanie zlyhalo");
-  }
-  return res.json();
-};
+) =>
+  fetchJson<MaterialSummaryResponse>(
+    `/materials/${id}/summary?force=true`,
+    token
+  );
+
+/* ---------------- AI – tags -------------------------------------------- */
+export const fetchMaterialTags = (id: number, token: string) =>
+  fetchJson<string[]>(`/materials/${id}/tags`, token);
+
+export const generateMaterialTags = (id: number, token: string) =>
+  fetchJson<string[]>(
+    `/materials/${id}/generate-tags?force=true`,
+    token,
+    { method: "POST" }
+  );

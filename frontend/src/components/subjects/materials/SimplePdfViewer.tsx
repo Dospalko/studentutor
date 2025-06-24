@@ -175,7 +175,26 @@ export default function SimplePdfViewer({
             )}
 
             {summary && !sumError && (
-              <p className="text-sm whitespace-pre-wrap">{summary}</p>
+              <div className="text-sm space-y-2">
+                {summary
+                  .split("\n")
+                  .filter((line) => line.startsWith("•"))
+                  .map((line, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <span className="text-primary font-bold">•</span>
+                      <span>{line.replace(/^•\s*/, "")}</span>
+                    </div>
+                  ))}
+
+                {summary.includes("Sumarizácia:") && (
+                  <div className="pt-3 border-t text-muted-foreground">
+                    <h5 className="font-semibold mb-1">Sumarizácia:</h5>
+                    <p className="whitespace-pre-wrap">
+                      {summary.split("Sumarizácia:")[1].trim()}
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
 
             {!summary && !sumLoading && sumError === null && (

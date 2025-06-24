@@ -6,11 +6,10 @@ from app.services.ai_service.openai_service import client as openai_client # Uis
 
 
 MAX_TEXT_FOR_SUMMARY = 8000 # Koľko znakov z extrahovaného textu pošleme na sumarizáciu
-
 def summarize_text_with_openai(text_content: str, max_length: int = 150) -> Dict[str, Any]:
     """
-    Vygeneruje krátku sumarizáciu pre daný text pomocou OpenAI.
-    max_length je približná cieľová dĺžka sumarizácie v slovách (ale OpenAI to nemusí presne dodržať).
+    Vygeneruje kľúčové body + sumarizáciu pre daný text pomocou OpenAI.
+    max_length je cieľová dĺžka sumarizácie v slovách.
     """
     if not openai_client:
         return {"summary": None, "error": "OpenAI client not initialized."}
@@ -18,30 +17,35 @@ def summarize_text_with_openai(text_content: str, max_length: int = 150) -> Dict
         return {"summary": None, "error": "No content provided for summarization."}
 
     prompt = f"""
-    Nasleduje text zo študijného materiálu. Tvojou úlohou je vytvoriť stručnú a výstižnú sumarizáciu tohto textu v slovenčine.
-    Sumarizácia by mala obsahovať kľúčové informácie a hlavné myšlienky textu.
-    Cieľová dĺžka sumarizácie je približne {max_length} slov.
+    Nasleduje text zo študijného materiálu. Tvojou úlohou je:
+    1. Vytvoriť 2 až 3 kľúčové myšlienky ako bullet pointy (krátke a vecné).
+    2. Potom vytvoriť stručnú sumarizáciu textu v slovenčine.
+    
+    Dĺžka sumarizácie: približne {max_length} slov.
 
-    Text na sumarizáciu:
+    Text na spracovanie:
     ---
-    {text_content[:MAX_TEXT_FOR_SUMMARY]} 
+    {text_content[:MAX_TEXT_FOR_SUMMARY]}
     ---
+    
+    Výstup:
+    • Kľúčová myšlienka 1  
+    • Kľúčová myšlienka 2  
+    • (voliteľná) Kľúčová myšlienka 3  
+    
     Sumarizácia:
     """
-    # print(f"\n--- OpenAI Prompt for Summarization ---\n{prompt[:500]}...\n---------------------\n") # Pre ladenie
-
     try:
         completion = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo", # Alebo iný model vhodný na sumarizáciu
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Si AI asistent špecializovaný na sumarizáciu textov a identifikáciu kľúčových informácií."},
+                {"role": "system", "content": "Si AI asistent špecializovaný na sumarizáciu a extrakciu kľúčových bodov z textov."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,
-            max_tokens=300  # Odhad pre sumarizáciu okolo 150 slov
+            max_tokens=400  # zvýšené pre kľúčové body + sumár
         )
         summary = completion.choices[0].message.content
-        # print(f"--- OpenAI Raw Summary ---\n{summary}\n-------------------------\n") # Pre ladenie
         return {"summary": summary.strip() if summary else None, "error": None}
     except Exception as e:
         logger.error("Error calling OpenAI API for summarization: %s", e, exc_info=True)

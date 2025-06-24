@@ -1,4 +1,4 @@
-from sqlalchemy import ARRAY, Column, Integer, String, Text, DateTime, Enum as SQLAlchemyEnum, ForeignKey
+from sqlalchemy import ARRAY, JSON, Column, Integer, String, Text, DateTime, Enum as SQLAlchemyEnum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..base import Base# Importuj Base zo správneho miesta
@@ -24,6 +24,6 @@ class StudyMaterial(Base):
     extracted_text = Column(Text, nullable=True) # NOVÝ STĹPEC
     ai_summary = Column(Text, nullable=True)
     ai_summary_error = Column(Text, nullable=True)
-    tags = Column(ARRAY(String), default=[])  # ← pridaj toto
+    tags = Column(JSON, default=list) 
     subject = relationship("Subject", back_populates="materials")
     owner = relationship("User", back_populates="study_materials_uploaded") # Nový vzťah v User modeli subject = relationship("Subject", back_populates="materials")

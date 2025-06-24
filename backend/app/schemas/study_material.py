@@ -1,39 +1,54 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from __future__ import annotations
+from pydantic import BaseModel, Field, field_validator
+from typing   import List, Optional
 from datetime import datetime
-from app.db.enums import MaterialTypeEnum # Správny import enumov
+from app.db.enums import MaterialTypeEnum
+import json
+
 
 class StudyMaterialBase(BaseModel):
-    title: Optional[str] = Field(None, max_length=255)
-    description: Optional[str] = None
+    title: Optional[str]                = Field(None, max_length=255)
+    description: Optional[str]          = None
     material_type: Optional[MaterialTypeEnum] = None
 
+
 class StudyMaterialCreate(StudyMaterialBase):
-    # Samotný súbor (UploadFile) sa bude posielať oddelene od týchto metadát
     pass
 
+
 class StudyMaterialUpdate(StudyMaterialBase):
-    # Pri update môžeme chcieť zmeniť len tieto polia
     pass
+
 
 class MaterialSummaryResponse(BaseModel):
     material_id: int
-    file_name: str
-    summary: Optional[str] = None
-    ai_error: Optional[str] = None
+    file_name:  str
+    summary:    Optional[str] = None
+    ai_error:   Optional[str] = None
 
-class StudyMaterial(StudyMaterialBase): # Pre response z API
-    id: int
-    file_name: str
-    file_type: Optional[str] = None
-    file_size: Optional[int] = None # v bajtoch
+
+class StudyMaterial(StudyMaterialBase):
+    id:          int
+    file_name:   str
+    file_type:   Optional[str] = None
+    file_size:   Optional[int] = None
     uploaded_at: datetime
-    subject_id: int
-    owner_id: int
-    tags: Optional[List[str]] = []
-    # file_path sa zvyčajne neposiela na frontend, namiesto toho sa vygeneruje URL na stiahnutie
+    subject_id:  int
+    owner_id:    int
+    tags:        List[str] = []
+
+    # ── deserialize JSON string -> list ────────────────────────────────────
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _deserialize_tags(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return v
+        try:
+            return json.loads(v)
+        except Exception:
+            return [t.strip() for t in str(v).split(",") if t.strip()]
 
     class Config:
         from_attributes = True
-
-

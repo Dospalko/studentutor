@@ -1,5 +1,5 @@
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import logger
 from app.services.ai_service.openai_service import client as openai_client # Uisti sa, že tento import funguje
@@ -50,3 +50,30 @@ def summarize_text_with_openai(text_content: str, max_length: int = 150) -> Dict
     except Exception as e:
         logger.error("Error calling OpenAI API for summarization: %s", e, exc_info=True)
         return {"summary": None, "error": str(e)}
+    
+def extract_tags_from_text(text_content: str) -> List[str]:
+    prompt = f"""
+    Na základe nasledujúceho študijného textu identifikuj 3 až 5 relevantných tagov (kľúčových slov) v slovenčine.
+    Výstup vráť ako zoznam hashtagov (napr. #biológia, #dejiny, #výpočty).
+
+    Text:
+    ---
+    {text_content[:5000]}
+    ---
+    """
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Si AI asistent na kategorizovanie študijných materiálov."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.4,
+            max_tokens=100,
+        )
+        raw_tags = response.choices[0].message.content.strip()
+        tags = [tag.strip().lstrip('#') for tag in raw_tags.split(',') if tag.strip()]
+        return tags
+    except Exception as e:
+        logger.error(f"Tag extraction failed: {e}")
+        return []

@@ -179,6 +179,8 @@ def get_material_summary_route(
     if not mat:
         raise HTTPException(404, "Material not found")
 
+    word_count = len(mat.extracted_text.split()) if mat.extracted_text else 0
+
     # 1) už uložené → vráť (ak force == False)
     if (mat.ai_summary or mat.ai_summary_error) and not force:
         return sm_schema.MaterialSummaryResponse(
@@ -186,6 +188,7 @@ def get_material_summary_route(
             file_name=mat.file_name,
             summary=mat.ai_summary,
             ai_error=mat.ai_summary_error,
+            word_count=word_count,
         )
 
     # 2) bez textu nevieme generovať
@@ -195,6 +198,7 @@ def get_material_summary_route(
             file_name=mat.file_name,
             summary=None,
             ai_error="Text from this material has not been extracted.",
+            word_count=0,
         )
 
     # 3) OpenAI
@@ -212,8 +216,8 @@ def get_material_summary_route(
         file_name=mat.file_name,
         summary=mat.ai_summary,
         ai_error=mat.ai_summary_error,
+        word_count=word_count,
     )
-
 
 # --------------------------------------------------------------------------- #
 # AI - TAGS (POST)                                                            #

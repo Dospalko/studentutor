@@ -30,6 +30,7 @@ export interface MaterialSummaryResponse {
   file_name: string;
   summary: string | null;
   ai_error: string | null;
+  word_count?: number | null;
 }
 
 /* ---------------- Helper ------------------------------------------------ */

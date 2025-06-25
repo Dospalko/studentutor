@@ -34,6 +34,7 @@ class MaterialSummaryResponse(BaseModel):
     file_name:   str
     summary:     Optional[str] = None
     ai_error:    Optional[str] = None
+    word_count: Optional[int] = None
 
 
 # ───────────────────────────────

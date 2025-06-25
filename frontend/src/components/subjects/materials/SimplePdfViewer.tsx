@@ -54,6 +54,7 @@ export default function SimplePdfViewer({
   /* AI – tags ----------------------------------------------------------- */
   const [tags, setTags] = useState<string[]>([]);
   const [tagsError, setTagsError] = useState<string | null>(null);
+  const [wordCount, setWordCount] = useState<number | null>(null); // 💡 PRIDANÉ
 
   /* -------------------------------------------------------------------- */
 
@@ -79,6 +80,7 @@ export default function SimplePdfViewer({
       .then((s) => {
         setSummary(s.summary);
         setSumError(s.ai_error ?? null);
+        setWordCount(s.word_count ?? null); // 💡 PRIDANÉ
       })
       .catch(() => {});
 
@@ -127,7 +129,7 @@ export default function SimplePdfViewer({
   /* -------------------------------------------------------------------- */
   if (!isOpen || !blobUrl) return null;
 
-  const needAI = (!summary || !!sumError) || tags.length === 0;
+  const needAI = !summary || !!sumError || tags.length === 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -140,9 +142,16 @@ export default function SimplePdfViewer({
             </span>
             <div className="min-w-0">
               <DialogTitle className="truncate">{effTitle}</DialogTitle>
-              <Badge variant="outline" className="text-xs mt-1">
-                PDF Dokument
-              </Badge>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className="text-xs">
+                  PDF Dokument
+                </Badge>
+                {wordCount !== null && ( // 💡 PRIDANÉ
+                  <span className="text-xs text-muted-foreground">
+                    {wordCount} slov
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -153,7 +162,11 @@ export default function SimplePdfViewer({
             <Button variant="ghost" size="icon" onClick={handleOpenNew}>
               <ExternalLink className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -186,13 +199,21 @@ export default function SimplePdfViewer({
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 text-xs">
                 {tags.map((t) => (
-                  <Badge key={t} variant="outline" className="bg-muted text-muted-foreground">
+                  <Badge
+                    key={t}
+                    variant="outline"
+                    className="bg-muted text-muted-foreground"
+                  >
                     #{t}
                   </Badge>
                 ))}
               </div>
             )}
-            {tagsError && <p className="text-sm text-destructive">Chyba tagov: {tagsError}</p>}
+            {tagsError && (
+              <p className="text-sm text-destructive">
+                Chyba tagov: {tagsError}
+              </p>
+            )}
 
             {/* AI TLAČIDLO ------------------------------------------------ */}
             {needAI && !sumLoading && (
@@ -209,7 +230,9 @@ export default function SimplePdfViewer({
             )}
 
             {/* CHYBA ----------------------------------------------------- */}
-            {sumError && <p className="text-sm text-destructive">Chyba: {sumError}</p>}
+            {sumError && (
+              <p className="text-sm text-destructive">Chyba: {sumError}</p>
+            )}
 
             {/* SUMAR ----------------------------------------------------- */}
             {summary && !sumError && (

@@ -58,25 +58,37 @@ export const AuthProvider: React.FC<Props> = ({ children }) => {
         setIsLoading(false);
         return;
       }
-
+  
       setIsLoading(true);
       try {
         const res = await fetch(`${API_BASE_URL}/users/me`, {
           headers: { Authorization: `Bearer ${tk}` },
         });
-
-        if (!res.ok) throw new Error(`Status ${res.status}`);
+  
+        if (res.status === 401) {
+          console.warn("Unauthorized – logging out...");
+          logout();
+          return;
+        }
+  
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error(`fetchUser failed: ${res.status} ${errorText}`);
+          throw new Error(`Status ${res.status}`);
+        }
+  
         const userData: User = await res.json();
         setUser(userData);
       } catch (err) {
         console.error("fetchUser error:", err);
-        logout();
+        logout(); // fallback logout
       } finally {
         setIsLoading(false);
       }
     },
     [token, logout]
   );
+  
 
   /* inicializácia na mount */
   useEffect(() => {

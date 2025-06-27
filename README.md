@@ -51,4 +51,4 @@
 make dev
 
 
-commit for a day false
+commit for a day false frda

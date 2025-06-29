@@ -9,6 +9,7 @@ import {
   dateFnsLocalizer,
   type DateLocalizer,
   type Event,
+  type View,          //  ←  ⬅  DOPLNENÉ
 } from "react-big-calendar";
 import withDragAndDrop, {
   type EventInteractionArgs,
@@ -77,36 +78,15 @@ export default function StudyCalendarView({
   onEventDrop,
   isUpdating,
 }: Props) {
-  /* --------------------------------------------------------- */
-  /*  3) kontrolovaný stav view + date                        */
+  /* ------------------------------------------------------------------ */
+  /*  2) controlled navigácia – dátum + view                            */
+  /* ------------------------------------------------------------------ */
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [, setCurrentView] = useState<string>(Views.MONTH);
+  const [currentView, setCurrentView] = useState<View>(Views.MONTH as View);
 
-  /* --------------------------------------------------------- */
-  /*  2) prevod blokov → udalosti                             */
-  /* --------------------------------------------------------- */
-  const events: CalendarEvent[] = useMemo(
-    () =>
-      studyPlan?.study_blocks
-        ? studyPlan.study_blocks.map((b) => {
-            const start = b.scheduled_at ? new Date(b.scheduled_at) : new Date();
-            const end = addMinutes(start, b.duration_minutes ?? 60);
-            return {
-              id: b.id,
-              title: b.topic.name,
-              start,
-              end,
-              allDay: !b.duration_minutes,
-              resource: b,
-            };
-          })
-        : [],
-    [studyPlan?.study_blocks]
-  );
-
-  /* --------------------------------------------------------- */
-  /*  1) fallback – nemáme nič na zobrazenie                   */
-  /* --------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /*  1) fallback – nemáme nič na zobrazenie                            */
+  /* ------------------------------------------------------------------ */
   if (!studyPlan) {
     return (
       <div className="p-4 text-center text-muted-foreground">
@@ -115,23 +95,39 @@ export default function StudyCalendarView({
     );
   }
 
-  /* --------------------------------------------------------- */
-  /*  4) drag-and-drop handler                                */
-  /* --------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /*  3) prevod blokov → udalosti                                       */
+  /* ------------------------------------------------------------------ */
+  const events: CalendarEvent[] = useMemo(
+    () =>
+      studyPlan.study_blocks.map((b) => {
+        const start = b.scheduled_at ? new Date(b.scheduled_at) : new Date();
+        const end = addMinutes(start, b.duration_minutes ?? 60);
+
+        return {
+          id: b.id,
+          title: b.topic.name,
+          start,
+          end,
+          allDay: !b.duration_minutes,
+          resource: b,
+        };
+      }),
+    [studyPlan.study_blocks]
+  );
+
+  /* ------------------------------------------------------------------ */
+  /*  4) drag-and-drop handler                                          */
+  /* ------------------------------------------------------------------ */
   const handleDrop = async (args: EventInteractionArgs<CalendarEvent>) => {
-    // Ensure start and end are Date objects
     const start = args.start instanceof Date ? args.start : new Date(args.start);
     const end = args.end instanceof Date ? args.end : new Date(args.end);
-    await onEventDrop?.({
-      event: args.event,
-      start,
-      end,
-    });
+    await onEventDrop?.({ event: args.event, start, end });
   };
 
-  /* --------------------------------------------------------- */
-  /*  5) custom renderer + dynamické farby                     */
-  /* --------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /*  5) renderer + farby                                               */
+  /* ------------------------------------------------------------------ */
   const EventCell = ({ event }: { event: CalendarEvent }) => (
     <div className="p-0.5 text-xs h-full overflow-hidden">
       <strong>{event.title}</strong>
@@ -143,9 +139,9 @@ export default function StudyCalendarView({
 
   const eventPropGetter = (
     event: CalendarEvent,
-    _start: Date,
-    _end: Date,
-    isSelected: boolean
+    _s: Date,
+    _e: Date,
+    isSel: boolean
   ) => {
     const style: CSSProperties = {
       color: "white",
@@ -174,16 +170,16 @@ export default function StudyCalendarView({
         style.borderColor = "#7C3AED";
     }
 
-    if (isSelected) {
+    if (isSel) {
       style.boxShadow = "0 0 0 2px hsl(var(--ring))";
       style.zIndex = 10;
     }
     return { style };
   };
 
-  /* --------------------------------------------------------- */
-  /*  6) render                                                */
-  /* --------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /*  6) render                                                          */
+  /* ------------------------------------------------------------------ */
   return (
     <div className="h-[600px] sm:h-[700px] p-1 bg-card shadow rounded-md relative">
       {/* loader cez celý kalendár */}
@@ -194,12 +190,14 @@ export default function StudyCalendarView({
       )}
 
       <DnDCalendar
+        /* --- controlled navigácia & view ----------------- */
+        date={currentDate}
+        view={currentView}
+        onNavigate={setCurrentDate}
+        onView={(v) => setCurrentView(v)}
+        /* -------------------------------------------------- */
         localizer={localizer}
         events={events}
-        date={currentDate}
-        onNavigate={(d) => setCurrentDate(d)}
-        onView={(v) => setCurrentView(v)}
-        defaultView="month"
         views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
         startAccessor="start"
         endAccessor="end"
@@ -219,7 +217,7 @@ export default function StudyCalendarView({
           previous: "Späť",
           next: "Ďalej",
           noEventsInRange: "V tomto rozsahu nie sú žiadne udalosti.",
-          showMore: (total) => `+ Zobraziť ${total} ďalších`,
+          showMore: (t) => `+ Zobraziť ${t} ďalších`,
         }}
       />
     </div>

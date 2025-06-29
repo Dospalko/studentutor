@@ -1,3 +1,7 @@
+/* ----------------------------------------------------------------------- */
+/*  StudyCalendarView.tsx                                                  */
+/*  – full, ready-to-paste file                                            */
+/* ----------------------------------------------------------------------- */
 "use client";
 
 import {
@@ -5,6 +9,7 @@ import {
   dateFnsLocalizer,
   Views,
   type DateLocalizer,
+  type ViewsProps,
 } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -19,19 +24,24 @@ import { enUS } from "date-fns/locale/en-US";
 import { StudyBlock } from "@/services/studyPlanService";
 import { StudyBlockStatus } from "@/types/study";
 import { Loader2 } from "lucide-react";
+import type { Messages } from "react-big-calendar";
 
-/* ---------- Lokálna konfigurácia date-fns ---------- */
+/* --------------------------------------------------------------------- */
+/*  1.  date-fns localizer                                               */
+/* --------------------------------------------------------------------- */
 const locales = { "en-US": enUS };
 
 const localizer: DateLocalizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 1 }),
+  startOfWeek: (d: Date) => startOfWeek(d, { weekStartsOn: 1 }), // Monday = 1
   getDay,
   locales,
 });
 
-/* ---------- Typ eventu posielaného do kalendára ---------- */
+/* --------------------------------------------------------------------- */
+/*  2.  calendar event type                                              */
+/* --------------------------------------------------------------------- */
 export interface CalendarEvent {
   id: number;
   title: string;
@@ -41,11 +51,13 @@ export interface CalendarEvent {
   resource?: StudyBlock;
 }
 
-/* ---------- Props pre komponent ---------- */
-interface StudyCalendarViewProps {
+/* --------------------------------------------------------------------- */
+/*  3.  component props                                                  */
+/* --------------------------------------------------------------------- */
+interface Props {
   studyPlan: { study_blocks: StudyBlock[] } | null;
-  onSelectEvent?: (event: CalendarEvent) => void;
-  onEventDrop?: (data: {
+  onSelectEvent?: (e: CalendarEvent) => void;
+  onEventDrop?: (p: {
     event: CalendarEvent;
     start: Date;
     end: Date;
@@ -54,25 +66,30 @@ interface StudyCalendarViewProps {
   isUpdating?: boolean;
 }
 
-/* ---------- Pomocné – formát ENUM hodnôt ---------- */
-const formatEnumValue = (value: string | undefined | null): string => {
-  if (!value) return "";
-  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-};
+/* --------------------------------------------------------------------- */
+/*  4.  helpers                                                          */
+/* --------------------------------------------------------------------- */
+const toDate = (val: Date | string) =>
+  val instanceof Date ? val : new Date(val);
 
-/* ---------- Drag-and-Drop verzia kalendára ---------- */
+const prettifyEnum = (v?: string | null) =>
+  v ? v.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
+
+/* --------------------------------------------------------------------- */
+/*  5.  DnD wrapper                                                      */
+/* --------------------------------------------------------------------- */
 const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar);
 
-/* -------------------------------------------------------------------------- */
-/*                                     View                                   */
-/* -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------- */
+/*  6.  main component                                                   */
+/* --------------------------------------------------------------------- */
 export default function StudyCalendarView({
   studyPlan,
   onSelectEvent,
   onEventDrop,
   isUpdating,
-}: StudyCalendarViewProps) {
-  /* Ak nemáme plán, zobrazíme info a končíme */
+}: Props) {
+  /* ───────────────────────────── early exit ────────────────────────── */
   if (!studyPlan) {
     return (
       <div className="p-4 text-center text-muted-foreground">
@@ -81,66 +98,127 @@ export default function StudyCalendarView({
     );
   }
 
-  /* ---------- Konverzia StudyBlock → CalendarEvent ---------- */
-  const events: CalendarEvent[] = studyPlan.study_blocks.map((block) => {
-    const startDate = block.scheduled_at ? new Date(block.scheduled_at) : new Date();
-    const endDate = new Date(startDate);
-
-    if (block.duration_minutes) {
-      endDate.setMinutes(startDate.getMinutes() + block.duration_minutes);
-    } else {
-      endDate.setHours(startDate.getHours() + 1);
-    }
+  /* ───────────────────────────── data prep ─────────────────────────── */
+  const events: CalendarEvent[] = studyPlan.study_blocks.map((b) => {
+    const start = b.scheduled_at ? new Date(b.scheduled_at) : new Date();
+    const end = new Date(start);
+    end.setMinutes(
+      start.getMinutes() + (b.duration_minutes ?? 60 /* default 1 h */)
+    );
 
     return {
-      id: block.id,
-      title: block.topic.name,
-      start: startDate,
-      end: endDate,
+      id: b.id,
+      title: b.topic.name,
+      start,
+      end,
       allDay:
-        !block.duration_minutes && block.scheduled_at
-          ? !block.scheduled_at.includes("T")
-          : !block.duration_minutes,
-      resource: block,
+        !b.duration_minutes &&
+        (!b.scheduled_at || !b.scheduled_at.includes("T")),
+      resource: b,
     };
   });
 
-  /* ---------- Vlastný render bunky udalosti ---------- */
-  const EventComponent = ({ event }: { event: CalendarEvent }) => {
-    const block = event.resource;
-    if (!block) return null;
+  /* ───────────────────────────── renderers ─────────────────────────── */
+  const EventCell = ({ event }: { event: CalendarEvent }) => {
+    const blk = event.resource!;
     return (
       <div className="p-0.5 text-xs h-full overflow-hidden">
         <strong>{event.title}</strong>
         <p className="truncate text-[0.65rem] leading-tight">
-          {formatEnumValue(block.status)}
+          {prettifyEnum(blk.status)}
         </p>
       </div>
     );
   };
 
-  /* ---------- Handler pre presun udalosti ---------- */
-  const handleEventDrop = async (args: {
+  /* ───────────────────────────── dnd handler ───────────────────────── */
+  /* ───────────────────────────── dnd handler ───────────────────────── */
+  const handleDrop = async (args: {
     event: CalendarEvent;
-    start: string | Date;
-    end: string | Date;
+    start: Date | string;
+    end: Date | string;
     allDay?: boolean;
   }) => {
-    // Convert string dates to Date objects if needed
-    const start = args.start instanceof Date ? args.start : new Date(args.start);
-    const end = args.end instanceof Date ? args.end : new Date(args.end);
-    
     await onEventDrop?.({
       event: args.event,
-      start,
-      end,
-      allDay: args.allDay
-    }); // Callback do rodiča
+      start: toDate(args.start),
+      end: toDate(args.end),
+      allDay: args.allDay,
+    });
+  };
+  /* ───────────────────────────── views & i18n ──────────────────────── */
+  const views: ViewsProps<CalendarEvent> = {
+    month: true,
+    week: true,
+    day: true,
+    agenda: true,
+  };
+  const messages: Messages<CalendarEvent> = {
+    month: "Mesiac",
+    week: "Týždeň",
+    day: "Deň",
+    agenda: "Agenda",
+    today: "Dnes",
+    previous: "Späť",
+    next: "Ďalej",
+    noEventsInRange: "V tomto rozsahu nie sú žiadne udalosti.",
+    showMore: (n: number) => `+ Zobraziť ďalších ${n}`,
   };
 
+  /* ───────────────────────────── style picker ──────────────────────── */
+  const eventStyleGetter = (
+    evt: CalendarEvent,
+    _start: Date,
+    _end: Date,
+    isSelected: boolean
+  ) => {
+    const blk = evt.resource!;
+    const style: React.CSSProperties = {
+      borderRadius: 3,
+      borderWidth: 1,
+      padding: "2px 4px",
+      color: "white",
+    };
+
+    switch (blk.status) {
+      case StudyBlockStatus.COMPLETED:
+        Object.assign(style, {
+          backgroundColor: "#34D399",
+          borderColor: "#059669",
+          color: "#064E3B",
+        });
+        break;
+      case StudyBlockStatus.IN_PROGRESS:
+        Object.assign(style, {
+          backgroundColor: "#60A5FA",
+          borderColor: "#2563EB",
+        });
+        break;
+      case StudyBlockStatus.SKIPPED:
+        Object.assign(style, {
+          backgroundColor: "#F87171",
+          borderColor: "#DC2626",
+          opacity: 0.8,
+        });
+        break;
+      default:
+        Object.assign(style, {
+          backgroundColor: "#A78BFA",
+          borderColor: "#7C3AED",
+        });
+    }
+
+    if (isSelected) {
+      style.boxShadow = "0 0 0 2px hsl(var(--ring))";
+      style.zIndex = 10;
+    }
+
+    return { style };
+  };
+
+  /* ───────────────────────────── render ────────────────────────────── */
   return (
     <div className="h-[600px] sm:h-[700px] p-1 bg-card shadow rounded-md relative">
-      {/* Loading overlay */}
       {isUpdating && (
         <div className="absolute inset-0 bg-background/70 flex items-center justify-center z-10 rounded-md">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -150,64 +228,20 @@ export default function StudyCalendarView({
       <DnDCalendar
         localizer={localizer}
         events={events}
+        views={views}
+        defaultView={Views.MONTH}
+        components={{ event: EventCell }}
+        messages={messages}
         startAccessor="start"
         endAccessor="end"
-        defaultView={Views.MONTH}
-        views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
-        style={{ height: "100%" }}
         selectable
-        onSelectEvent={onSelectEvent}
-        onEventDrop={handleEventDrop}
         draggableAccessor={() => true}
-        components={{ event: EventComponent }}
-        eventPropGetter={(event, _start, _end, isSelected) => {
-          /* ---------- Dynamická farba podľa statusu ---------- */
-          const style: React.CSSProperties = {
-            color: "white",
-            borderRadius: "3px",
-            borderWidth: "1px",
-            padding: "2px 4px",
-          };
-          const block = event.resource;
-          if (block) {
-            switch (block.status) {
-              case StudyBlockStatus.COMPLETED:
-                style.backgroundColor = "#34D399";
-                style.borderColor = "#059669";
-                style.color = "#064E3B";
-                break;
-              case StudyBlockStatus.IN_PROGRESS:
-                style.backgroundColor = "#60A5FA";
-                style.borderColor = "#2563EB";
-                break;
-              case StudyBlockStatus.SKIPPED:
-                style.backgroundColor = "#F87171";
-                style.borderColor = "#DC2626";
-                style.opacity = 0.8;
-                break;
-              default:
-                style.backgroundColor = "#A78BFA";
-                style.borderColor = "#7C3AED";
-            }
-            if (isSelected) {
-              style.boxShadow = "0 0 0 2px hsl(var(--ring))";
-              style.zIndex = 10;
-            }
-          }
-          return { style };
-        }}
-        messages={{
-          month: "Mesiac",
-          week: "Týždeň",
-          day: "Deň",
-          agenda: "Agenda",
-          today: "Dnes",
-          previous: "Späť",
-          next: "Ďalej",
-          noEventsInRange: "V tomto rozsahu nie sú žiadne udalosti.",
-          showMore: (total) => `+ Zobraziť ${total} ďalších`,
-        }}
+        onSelectEvent={onSelectEvent}
+        onEventDrop={handleDrop}
+        eventPropGetter={eventStyleGetter}
+        style={{ height: "100%" }}
       />
     </div>
   );
 }
+/* ----------------------------------------------------------------------- */

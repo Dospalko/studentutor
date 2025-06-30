@@ -71,12 +71,19 @@ export const uploadStudyMaterial = async (
 
 export const getStudyMaterialsForSubject = (
   subjectId: number,
-  token: string
-) =>
-  fetchJson<StudyMaterial[]>(
-    `/subjects/${subjectId}/materials/`,
+  token: string,
+  tags?: string[]           //  <-- NOVÉ
+) => {
+  const query =
+    tags && tags.length > 0
+      ? `?tags=${tags.map(t => encodeURIComponent(`#${t}`)).join(",")}`
+      : ""
+  return fetchJson<StudyMaterial[]>(
+    `/subjects/${subjectId}/materials/${query}`,
     token
-  );
+  )
+}
+
 
 export const deleteStudyMaterial = (id: number, token: string) =>
   fetchJson<StudyMaterial>(`/materials/${id}`, token, { method: "DELETE" });
@@ -137,3 +144,5 @@ export const generateMaterialTags = (id: number, token: string) =>
     token,
     { method: "POST" }
   );
+
+  

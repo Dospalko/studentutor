@@ -1,6 +1,9 @@
+/* ----------------------------------------------------------------------- */
+/*  StudyMaterialList – teraz s filtrovaním podľa tagov                    */
+/* ----------------------------------------------------------------------- */
 "use client"
 
-import { useState, useContext } from "react"
+import { useState, useContext, useMemo } from "react"
 import {
   type StudyMaterial,
   fetchProtectedFileAsBlobUrl,
@@ -12,6 +15,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import {
   FileText,
   Download,
@@ -24,14 +29,19 @@ import {
   BookOpen,
 } from "lucide-react"
 import SimplePdfViewer from "@/components/subjects/materials/SimplePdfViewer"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 /* ---------- helpers ---------- */
 const formatEnumValue = (v?: string | null) =>
-  !v ? "N/A" : v.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  !v ? "N/A" : v.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
 
 const formatFileSize = (bytes?: number | null) => {
-  if (!bytes && bytes !== 0) return "N/A"
+  if (bytes == null) return "N/A"
   if (bytes === 0) return "0 B"
   const k = 1024
   const sizes = ["B", "KB", "MB", "GB", "TB"]
@@ -70,14 +80,35 @@ export default function StudyMaterialList({
   isLoading,
   error,
 }: StudyMaterialListProps) {
+  /* ------------------------------------------------------------------ */
+  /*  lokálne UI stavy + auth                                           */
+  /* ------------------------------------------------------------------ */
   const [pdfView, setPdfView] = useState<PdfState>(null)
   const [processingId, setProcessingId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const { token } = useContext(AuthContext) ?? {}
 
+  /* ------------- TAG filter ----------------------------------------- */
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+
+  // unikátne tagy zo všetkých materiálov
+  const allTags = useMemo(() => {
+    const set = new Set<string>()
+    materials.forEach(m => (m.tags ?? []).forEach(t => set.add(t)))
+    return Array.from(set)
+  }, [materials])
+
+  // materiály po filtrovaní
+  const filtered = useMemo(() => {
+    if (selectedTags.length === 0) return materials
+    return materials.filter(m =>
+      selectedTags.every(t => (m.tags ?? []).includes(t))
+    )
+  }, [materials, selectedTags])
+
   /* ---------- handlers ---------- */
   const handleDelete = async (id: number) => {
-    if (!confirm("Naozaj chcete zmazať tento materiál? Táto akcia je nenávratná.")) return
+    if (!confirm("Naozaj chcete zmazať tento materiál?")) return
     setDeletingId(id)
     try {
       await onDeleteMaterial(id)
@@ -95,40 +126,18 @@ export default function StudyMaterialList({
       const { blobUrl, fileType } = await fetchProtectedFileAsBlobUrl(m.id, token)
 
       if (fileType?.toLowerCase().includes("pdf")) {
-        setPdfView({
-          materialId: m.id,
-          blobUrl,
-          title: m.title || m.file_name,
-          fileType,
-        })
+        setPdfView({ materialId: m.id, blobUrl, title: m.title || m.file_name, fileType })
 
-        // ️⬇️  Volanie AI sumáru
+        // doplň AI sumár – voliteľné
         try {
           const res = await fetchMaterialSummary(m.id, token)
-          setPdfView((s) =>
-            s
-              ? {
-                  ...s,
-                  summary: res.summary,
-                  summaryLoading: false,
-                  summaryError: res.ai_error,
-                }
-              : s
-          )
+          setPdfView(s => (s ? { ...s, summary: res.summary, summaryError: res.ai_error } : s))
         } catch (e) {
-          setPdfView((s) =>
-            s
-              ? {
-                  ...s,
-                  summary: null,
-                  summaryLoading: false,
-                  summaryError: (e as Error).message,
-                }
-              : s
+          setPdfView(s =>
+            s ? { ...s, summary: null, summaryError: (e as Error).message } : s
           )
         }
       } else {
-        // iné typy – len otvor/stiahni
         const a = document.createElement("a")
         a.href = blobUrl
         a.download = m.file_name
@@ -138,8 +147,7 @@ export default function StudyMaterialList({
         URL.revokeObjectURL(blobUrl)
       }
     } catch (e) {
-      console.error(e)
-      alert(`Nepodarilo sa zobraziť súbor: ${(e as Error).message}`)
+      alert((e as Error).message)
     } finally {
       setProcessingId(null)
     }
@@ -147,20 +155,15 @@ export default function StudyMaterialList({
 
   const handleDownload = async (m: StudyMaterial) => {
     if (!token) return alert("Chyba autentifikácie.")
-    if (processingId === m.id) return
     setProcessingId(m.id)
     try {
       await downloadProtectedFile(m.id, m.file_name, token)
-    } catch (e) {
-      console.error(e)
-      alert(`Nepodarilo sa stiahnuť: ${(e as Error).message}`)
     } finally {
       setProcessingId(null)
     }
   }
-  /* -------------------------------- */
 
-  /* ---------- loading / error states ---------- */
+  /* ---------- loading / error ---------- */
   if (isLoading)
     return (
       <Card className="border-muted/40">
@@ -181,35 +184,60 @@ export default function StudyMaterialList({
       </Alert>
     )
 
-  if (materials.length === 0)
+  if (filtered.length === 0)
     return (
       <Card className="border-2 border-dashed border-border bg-muted/20">
         <CardContent className="py-16 text-center">
           <BookOpen className="w-10 h-10 mx-auto text-primary mb-4" />
-          <p className="text-muted-foreground">Žiadne materiály – nahrajte prvý súbor.</p>
+          <p className="text-muted-foreground">Žiadne materiály pre zvolený filter.</p>
         </CardContent>
       </Card>
     )
 
-  /* ---------- default render ---------- */
+  /* ---------- render ---------- */
   return (
     <TooltipProvider>
-      {/* header */}
+      {/* HEADER */}
       <Card className="border-muted/40 mb-4">
-        <CardHeader className="pb-4 flex items-center gap-3">
-          <FileText className="h-5 w-5 text-primary" />
-          <div>
+        <CardHeader className="pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
             <CardTitle className="text-xl font-semibold">Študijné Materiály</CardTitle>
-            <Badge variant="outline" className="text-xs mt-1">
-              {materials.length} materiálov
+            <Badge variant="outline" className="text-xs">
+              {filtered.length}/{materials.length}
             </Badge>
           </div>
+
+          {/* FILTER */}
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Label className="text-sm font-medium">Filter podľa tagu:</Label>
+              {allTags.map(tag => (
+                <div key={tag} className="flex items-center space-x-1">
+                  <Checkbox
+                    checked={selectedTags.includes(tag)}
+                    onCheckedChange={c =>
+                      setSelectedTags(prev =>
+                        c ? [...prev, tag] : prev.filter(t => t !== tag)
+                      )
+                    }
+                  />
+                  <span className="text-xs">#{tag}</span>
+                </div>
+              ))}
+              {selectedTags.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setSelectedTags([])}>
+                  Vymazať filter
+                </Button>
+              )}
+            </div>
+          )}
         </CardHeader>
       </Card>
 
-      {/* list */}
+      {/* LIST */}
       <div className="grid gap-4">
-        {materials.map((m, i) => (
+        {filtered.map((m, i) => (
           <Card
             key={m.id}
             className="group hover:shadow-lg border-muted/40 hover:border-primary/40 transition"
@@ -217,7 +245,7 @@ export default function StudyMaterialList({
           >
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                {/* icon + meta */}
+                {/* --- META --------------------------------------------------- */}
                 <div className="flex gap-4 flex-grow min-w-0">
                   <FileText className="h-6 w-6 text-primary flex-shrink-0" />
                   <div className="min-w-0">
@@ -233,7 +261,6 @@ export default function StudyMaterialList({
                       <TooltipContent>{m.title || m.file_name}</TooltipContent>
                     </Tooltip>
 
-                    {/* tags */}
                     <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <HardDrive className="h-3 w-3" />
@@ -253,13 +280,25 @@ export default function StudyMaterialList({
                       </span>
                     </div>
 
+                    {(m.tags ?? []).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(m.tags ?? []).map(t => (
+                          <Badge key={t} variant="outline" className="text-[10px]">
+                            #{t}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
                     {m.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{m.description}</p>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {m.description}
+                      </p>
                     )}
                   </div>
                 </div>
 
-                {/* actions */}
+                {/* --- ACTIONS ---------------------------------------------- */}
                 <div className="flex gap-2 flex-shrink-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition">
                   {/* view */}
                   <Tooltip>
@@ -274,9 +313,7 @@ export default function StudyMaterialList({
                         {processingId === m.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <>
-                            <Eye className="h-4 w-4" />
-                          </>
+                          <Eye className="h-4 w-4" />
                         )}
                       </Button>
                     </TooltipTrigger>
@@ -296,9 +333,7 @@ export default function StudyMaterialList({
                         {processingId === m.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <>
-                            <Download className="h-4 w-4" />
-                          </>
+                          <Download className="h-4 w-4" />
                         )}
                       </Button>
                     </TooltipTrigger>
@@ -318,9 +353,7 @@ export default function StudyMaterialList({
                         {deletingId === m.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <>
-                            <Trash2 className="h-4 w-4" />
-                          </>
+                          <Trash2 className="h-4 w-4" />
                         )}
                       </Button>
                     </TooltipTrigger>
@@ -333,14 +366,13 @@ export default function StudyMaterialList({
         ))}
       </div>
 
-      {/* PDF viewer + AI summary */}
       <SimplePdfViewer
-  isOpen={!!pdfView}
-  onOpenChange={(o) => !o && setPdfView(null)}
-  blobUrl={pdfView?.blobUrl ?? null}
-  title={pdfView?.title}
-  materialId={pdfView?.materialId ?? 0}  
-/>
+        isOpen={!!pdfView}
+        onOpenChange={o => !o && setPdfView(null)}
+        blobUrl={pdfView?.blobUrl ?? null}
+        title={pdfView?.title}
+        materialId={pdfView?.materialId ?? 0}
+      />
     </TooltipProvider>
   )
 }

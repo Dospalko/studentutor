@@ -11,6 +11,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
     status,
 )
@@ -89,8 +90,13 @@ def get_materials_for_subject(
     subject_id: int,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_active_user),
+    tags: str | None = Query(
+        None,
+        description="Zoznam tagov oddelený čiarkou (bez #), napr. 'dejiny,biológia'"
+    ),
 ):
-    mats = crud.get_study_materials_for_subject(db, subject_id, current_user.id)
+    tag_list = [t.trim() for t in tags.split(",") if t.trim()] if tags else None
+    mats = crud.get_study_materials_for_subject(db, subject_id, current_user.id, tag_list)
     if mats is None:
         raise HTTPException(404, "Subject not found or no materials.")
     return mats

@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------- */
-/*  StudyMaterialList – teraz s filtrovaním podľa tagov                    */
+/*  StudyMaterialList – filter podľa tagov + spoľahlivý náhľad PDF         */
 /* ----------------------------------------------------------------------- */
 "use client"
 
@@ -15,8 +15,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import {
   FileText,
   Download,
@@ -27,6 +25,7 @@ import {
   Calendar,
   HardDrive,
   BookOpen,
+  X,
 } from "lucide-react"
 import SimplePdfViewer from "@/components/subjects/materials/SimplePdfViewer"
 import {
@@ -36,7 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-/* ---------- helpers ---------- */
+/* ---------- helpers ---------------------------------------------------- */
 const formatEnumValue = (v?: string | null) =>
   !v ? "N/A" : v.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
 
@@ -52,15 +51,15 @@ const formatFileSize = (bytes?: number | null) => {
 const getFileTypeColor = (ft: string | null) => {
   if (!ft) return "bg-muted/50 text-muted-foreground"
   const t = ft.toLowerCase()
-  if (t.includes("pdf")) return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-  if (t.includes("doc")) return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+  if (t.includes("pdf"))   return "bg-red-100 text-red-700  dark:bg-red-900/30  dark:text-red-300"
+  if (t.includes("doc"))   return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
   if (t.includes("image")) return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-  if (t.includes("text")) return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300"
+  if (t.includes("text"))  return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300"
   return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
 }
-/* -------------------------------- */
+/* ---------------------------------------------------------------------- */
 
-interface StudyMaterialListProps {
+interface Props {
   materials: StudyMaterial[]
   onDeleteMaterial: (id: number) => Promise<void>
   isLoading?: boolean
@@ -72,72 +71,72 @@ type PdfState = {
   blobUrl: string
   title: string
   fileType: string | null
+  summary?: string | null
+  summaryError?: string | null
 } | null
 
-export default function StudyMaterialList({
+export default function StudyMaterialList ({
   materials,
   onDeleteMaterial,
   isLoading,
   error,
-}: StudyMaterialListProps) {
-  /* ------------------------------------------------------------------ */
-  /*  lokálne UI stavy + auth                                           */
-  /* ------------------------------------------------------------------ */
-  const [pdfView, setPdfView] = useState<PdfState>(null)
-  const [processingId, setProcessingId] = useState<number | null>(null)
-  const [deletingId, setDeletingId] = useState<number | null>(null)
-  const { token } = useContext(AuthContext) ?? {}
+}: Props) {
+  /* --------------------- lokálne stavy -------------------------------- */
+  const [pdfView,      setPdfView] = useState<PdfState>(null)
+  const [processingId, setProcId]  = useState<number | null>(null)
+  const [deletingId,   setDelId]   = useState<number | null>(null)
+  const [selectedTags, setTags]    = useState<string[]>([])
+  const { token }                  = useContext(AuthContext) ?? {}
 
-  /* ------------- TAG filter ----------------------------------------- */
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-
-  // unikátne tagy zo všetkých materiálov
+  /* --------------------- TAGS ----------------------------------------- */
   const allTags = useMemo(() => {
-    const set = new Set<string>()
-    materials.forEach(m => (m.tags ?? []).forEach(t => set.add(t)))
-    return Array.from(set)
+    const s = new Set<string>()
+    materials.forEach(m => (m.tags ?? []).forEach(t => s.add(t)))
+    return [...s].sort()
   }, [materials])
 
-  // materiály po filtrovaní
-  const filtered = useMemo(() => {
+  const visible = useMemo(() => {
     if (selectedTags.length === 0) return materials
-    return materials.filter(m =>
-      selectedTags.every(t => (m.tags ?? []).includes(t))
-    )
+    return materials.filter(m => selectedTags.every(t => (m.tags ?? []).includes(t)))
   }, [materials, selectedTags])
 
-  /* ---------- handlers ---------- */
+  /* --------------------- handlers ------------------------------------- */
   const handleDelete = async (id: number) => {
     if (!confirm("Naozaj chcete zmazať tento materiál?")) return
-    setDeletingId(id)
-    try {
-      await onDeleteMaterial(id)
-    } finally {
-      setDeletingId(null)
-    }
+    setDelId(id)
+    try { await onDeleteMaterial(id) } finally { setDelId(null) }
   }
 
+  /**
+   * Otvorí PDF vo viewer-i alebo pri iných formátoch spustí download.
+   * Rozhodujeme podľa `Content-Type` **alebo** fallback na príponu,
+   * lebo backend nie vždy pošle hlavičku.
+   */
   const handleView = async (m: StudyMaterial) => {
     if (!token) return alert("Chyba autentifikácie.")
     if (processingId === m.id) return
-    setProcessingId(m.id)
+    setProcId(m.id)
 
     try {
       const { blobUrl, fileType } = await fetchProtectedFileAsBlobUrl(m.id, token)
 
-      if (fileType?.toLowerCase().includes("pdf")) {
+      const isPdf =
+        (fileType && fileType.toLowerCase().includes("pdf")) ||
+        m.file_name.toLowerCase().endsWith(".pdf")        // ← fallback
+
+      if (isPdf) {
         setPdfView({ materialId: m.id, blobUrl, title: m.title || m.file_name, fileType })
 
-        // doplň AI sumár – voliteľné
-        try {
-          const res = await fetchMaterialSummary(m.id, token)
-          setPdfView(s => (s ? { ...s, summary: res.summary, summaryError: res.ai_error } : s))
-        } catch (e) {
-          setPdfView(s =>
-            s ? { ...s, summary: null, summaryError: (e as Error).message } : s
+        // voliteľný AI súhrn (ticho ak zlyhá)
+        fetchMaterialSummary(m.id, token)
+          .then(r =>
+            setPdfView(s => (s ? { ...s, summary: r.summary, summaryError: r.ai_error } : s))
           )
-        }
+          .catch(e =>
+            setPdfView(s => (s ? { ...s, summaryError: (e as Error).message } : s))
+          )
       } else {
+        // ne-PDF – len stiahni
         const a = document.createElement("a")
         a.href = blobUrl
         a.download = m.file_name
@@ -149,21 +148,18 @@ export default function StudyMaterialList({
     } catch (e) {
       alert((e as Error).message)
     } finally {
-      setProcessingId(null)
+      setProcId(null)
     }
   }
 
   const handleDownload = async (m: StudyMaterial) => {
     if (!token) return alert("Chyba autentifikácie.")
-    setProcessingId(m.id)
-    try {
-      await downloadProtectedFile(m.id, m.file_name, token)
-    } finally {
-      setProcessingId(null)
-    }
+    setProcId(m.id)
+    try { await downloadProtectedFile(m.id, m.file_name, token) }
+    finally { setProcId(null) }
   }
 
-  /* ---------- loading / error ---------- */
+  /* --------------------- loading / error ------------------------------ */
   if (isLoading)
     return (
       <Card className="border-muted/40">
@@ -184,50 +180,64 @@ export default function StudyMaterialList({
       </Alert>
     )
 
-  if (filtered.length === 0)
+  if (visible.length === 0)
     return (
       <Card className="border-2 border-dashed border-border bg-muted/20">
         <CardContent className="py-16 text-center">
           <BookOpen className="w-10 h-10 mx-auto text-primary mb-4" />
-          <p className="text-muted-foreground">Žiadne materiály pre zvolený filter.</p>
+          <p className="text-muted-foreground">
+            Žiadne materiály pre zvolený filter.
+          </p>
         </CardContent>
       </Card>
     )
 
-  /* ---------- render ---------- */
+  /* --------------------- render --------------------------------------- */
   return (
     <TooltipProvider>
-      {/* HEADER */}
+      {/* ------------------- HEADER + TAG FILTER ------------------------ */}
       <Card className="border-muted/40 mb-4">
-        <CardHeader className="pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <CardHeader className="pb-4 space-y-4">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            <CardTitle className="text-xl font-semibold">Študijné Materiály</CardTitle>
+            <CardTitle className="text-xl font-semibold">
+              Študijné Materiály
+            </CardTitle>
             <Badge variant="outline" className="text-xs">
-              {filtered.length}/{materials.length}
+              {visible.length}/{materials.length}
             </Badge>
           </div>
 
-          {/* FILTER */}
           {allTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
-              <Label className="text-sm font-medium">Filter podľa tagu:</Label>
-              {allTags.map(tag => (
-                <div key={tag} className="flex items-center space-x-1">
-                  <Checkbox
-                    checked={selectedTags.includes(tag)}
-                    onCheckedChange={c =>
-                      setSelectedTags(prev =>
-                        c ? [...prev, tag] : prev.filter(t => t !== tag)
-                      )
+            <div className="flex flex-wrap items-center gap-2">
+              {allTags.map(tag => {
+                const active = selectedTags.includes(tag)
+                return (
+                  <Badge
+                    key={tag}
+                    onClick={() =>
+                      setTags(a => (active ? a.filter(t => t !== tag) : [...a, tag]))
                     }
-                  />
-                  <span className="text-xs">#{tag}</span>
-                </div>
-              ))}
+                    className={`cursor-pointer select-none ${
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/70 text-muted-foreground"
+                    }`}
+                  >
+                    #{tag}
+                  </Badge>
+                )
+              })}
+
               {selectedTags.length > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => setSelectedTags([])}>
-                  Vymazať filter
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 ml-1"
+                  onClick={() => setTags([])}
+                  title="Vymazať filter"
+                >
+                  <X className="h-4 w-4" />
                 </Button>
               )}
             </div>
@@ -235,9 +245,9 @@ export default function StudyMaterialList({
         </CardHeader>
       </Card>
 
-      {/* LIST */}
+      {/* ------------------- LIST --------------------------------------- */}
       <div className="grid gap-4">
-        {filtered.map((m, i) => (
+        {visible.map((m, i) => (
           <Card
             key={m.id}
             className="group hover:shadow-lg border-muted/40 hover:border-primary/40 transition"
@@ -245,7 +255,7 @@ export default function StudyMaterialList({
           >
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                {/* --- META --------------------------------------------------- */}
+                {/* ---------------- META -------------------------------- */}
                 <div className="flex gap-4 flex-grow min-w-0">
                   <FileText className="h-6 w-6 text-primary flex-shrink-0" />
                   <div className="min-w-0">
@@ -267,10 +277,15 @@ export default function StudyMaterialList({
                         {formatFileSize(m.file_size)}
                       </span>
                       {m.material_type && (
-                        <Badge variant="secondary">{formatEnumValue(m.material_type)}</Badge>
+                        <Badge variant="secondary">
+                          {formatEnumValue(m.material_type)}
+                        </Badge>
                       )}
                       {m.file_type && (
-                        <Badge variant="outline" className={getFileTypeColor(m.file_type)}>
+                        <Badge
+                          variant="outline"
+                          className={getFileTypeColor(m.file_type)}
+                        >
                           {m.file_type.split("/")[1]?.toUpperCase() ?? "FILE"}
                         </Badge>
                       )}
@@ -298,7 +313,7 @@ export default function StudyMaterialList({
                   </div>
                 </div>
 
-                {/* --- ACTIONS ---------------------------------------------- */}
+                {/* ---------------- ACTIONS ----------------------------- */}
                 <div className="flex gap-2 flex-shrink-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition">
                   {/* view */}
                   <Tooltip>
@@ -366,6 +381,7 @@ export default function StudyMaterialList({
         ))}
       </div>
 
+      {/* ------------------- PDF VIEWER ---------------------------------- */}
       <SimplePdfViewer
         isOpen={!!pdfView}
         onOpenChange={o => !o && setPdfView(null)}

@@ -120,9 +120,25 @@ def get_study_material(db: Session, material_id: int, owner_id: int) -> Optional
     )
 
 
-def get_study_materials_for_subject(db: Session, subject_id: int, owner_id: int) -> List[StudyMaterial]:
-    subj = get_subject(db, subject_id, owner_id)
-    return sorted(subj.materials, key=lambda m: m.uploaded_at, reverse=True) if subj else []
+def get_study_materials_for_subject(
+    db: Session,
+    subject_id: int,
+    owner_id: int,
+    tags: list[str] | None = None,
+) -> list[StudyMaterial]:
+    """
+    Ak `tags` nie je None, vráti len materiály, ktoré obsahujú všetky tieto tagy.
+    (SQLite: jednoduché LIKE na JSON‐reťazec)
+    """
+    query = db.query(StudyMaterial).filter(
+        StudyMaterial.subject_id == subject_id,
+        StudyMaterial.owner_id == owner_id,
+    )
+    if tags:
+        for tag in tags:
+            # v JSON uložené ako ["foo","bar"], takže hľadáme '"tag"'
+            query = query.filter(StudyMaterial.tags.like(f'%"{tag}"%'))
+    return query.order_by(StudyMaterial.uploaded_at.desc()).all()
 
 # --------------------------------------------------------------------------- #
 # UPDATE                                                                      #
@@ -269,3 +285,4 @@ def update_material_tags(db: Session, material_id: int, tags: list[str]) -> bool
         logger.exception("Saving tags failed: %s", exc)
         db.rollback()
         return False
+

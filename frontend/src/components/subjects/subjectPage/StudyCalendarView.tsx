@@ -85,6 +85,29 @@ export default function StudyCalendarView({
   const [currentView, setCurrentView] = useState<View>(Views.MONTH as View);
 
   /* ------------------------------------------------------------------ */
+  /*  3) prevod blokov → udalosti                                       */
+  /* ------------------------------------------------------------------ */
+  const events: CalendarEvent[] = useMemo(
+    () =>
+      studyPlan?.study_blocks
+        ? studyPlan.study_blocks.map((b) => {
+            const start = b.scheduled_at ? new Date(b.scheduled_at) : new Date();
+            const end = addMinutes(start, b.duration_minutes ?? 60);
+
+            return {
+              id: b.id,
+              title: b.topic.name,
+              start,
+              end,
+              allDay: !b.duration_minutes,
+              resource: b,
+            };
+          })
+        : [],
+    [studyPlan?.study_blocks]
+  );
+
+  /* ------------------------------------------------------------------ */
   /*  1) fallback – nemáme nič na zobrazenie                            */
   /* ------------------------------------------------------------------ */
   if (!studyPlan) {
@@ -94,27 +117,6 @@ export default function StudyCalendarView({
       </div>
     );
   }
-
-  /* ------------------------------------------------------------------ */
-  /*  3) prevod blokov → udalosti                                       */
-  /* ------------------------------------------------------------------ */
-  const events: CalendarEvent[] = useMemo(
-    () =>
-      studyPlan.study_blocks.map((b) => {
-        const start = b.scheduled_at ? new Date(b.scheduled_at) : new Date();
-        const end = addMinutes(start, b.duration_minutes ?? 60);
-
-        return {
-          id: b.id,
-          title: b.topic.name,
-          start,
-          end,
-          allDay: !b.duration_minutes,
-          resource: b,
-        };
-      }),
-    [studyPlan.study_blocks]
-  );
 
   /* ------------------------------------------------------------------ */
   /*  4) drag-and-drop handler                                          */

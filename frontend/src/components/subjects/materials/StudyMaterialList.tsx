@@ -11,17 +11,6 @@ import {
 } from "@/services/studyMaterialService"
 import { AuthContext } from "@/context/AuthContext"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-
 import {
   FileText,
   Download,
@@ -35,22 +24,28 @@ import {
   X,
 } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+
 import SimplePdfViewer from "@/components/subjects/materials/SimplePdfViewer"
 
 /* ---------- helpers ---------------------------------------------------- */
-const formatEnumValue = (v?: string | null) =>
+const formatEnum = (v?: string | null) =>
   !v ? "N/A" : v.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
 
-const formatFileSize = (bytes?: number | null) => {
-  if (bytes == null) return "N/A"
-  if (bytes === 0) return "0 B"
+const formatSize = (b?: number | null) => {
+  if (b == null) return "N/A"
+  if (b === 0) return "0 B"
   const k = 1024
-  const sizes = ["B", "KB", "MB", "GB", "TB"]
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  const i = Math.floor(Math.log(b) / Math.log(k))
+  return `${parseFloat((b / Math.pow(k, i)).toFixed(1))} ${units[i]}`
 }
 
-const getFileTypeColor = (ft: string | null) => {
+const ftColor = (ft: string | null) => {
   if (!ft) return "bg-muted/50 text-muted-foreground"
   const t = ft.toLowerCase()
   if (t.includes("pdf"))   return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
@@ -69,76 +64,62 @@ interface Props {
 }
 
 type PdfState =
-  | {
-      materialId: number
-      blobUrl: string
-      title: string
-      fileType: string | null
-    }
+  | { materialId: number; blobUrl: string; title: string; fileType: string | null }
   | null
 
 export default function StudyMaterialList({
-  materials: initialMaterials,
+  materials: init,
   onDeleteMaterial,
   isLoading,
   error,
 }: Props) {
-  /* ---------------- lokálne stavy ------------------------------------ */
-  const [materials, setMaterials] = useState<StudyMaterial[]>(initialMaterials)
-  const [pdfView, setPdfView]     = useState<PdfState>(null)
-  const [processingId, setProc]   = useState<number | null>(null)
-  const [deletingId, setDel]      = useState<number | null>(null)
-  const [selectedTags, setTags]   = useState<string[]>([])
-  const { token }                 = useContext(AuthContext) ?? {}
+  const [materials, setMaterials] = useState<StudyMaterial[]>(init)
+  const [pdfView,  setPdfView]    = useState<PdfState>(null)
+  const [procId,   setProcId]     = useState<number | null>(null)
+  const [delId,    setDelId]      = useState<number | null>(null)
+  const [filter,   setFilter]     = useState<string[]>([])
+  const { token }  = useContext(AuthContext) ?? {}
 
-  /* synchronizácia po refetech z parenta */
-  useEffect(() => setMaterials(initialMaterials), [initialMaterials])
+  useEffect(() => setMaterials(init), [init])
 
-  /* ---------------- TAGS & filter ------------------------------------ */
+  /* ---------- TAGS & filter ---------- */
   const allTags = useMemo(() => {
     const s = new Set<string>()
     materials.forEach(m => (m.tags ?? []).forEach(t => s.add(t)))
     return [...s].sort()
   }, [materials])
 
-  const visible = useMemo(() => {
-    if (selectedTags.length === 0) return materials
-    return materials.filter(m => selectedTags.every(t => (m.tags ?? []).includes(t)))
-  }, [materials, selectedTags])
+  const visible = useMemo(
+    () =>
+      filter.length === 0
+        ? materials
+        : materials.filter(m => filter.every(t => (m.tags ?? []).includes(t))),
+    [materials, filter]
+  )
 
-  /* ---------------- helper na patch lokálneho záznamu ---------------- */
-  const mutate = (id: number, patch: Partial<StudyMaterial>) =>
-    setMaterials(list => list.map(m => (m.id === id ? { ...m, ...patch } : m)))
+  const patch = (id: number, p: Partial<StudyMaterial>) =>
+    setMaterials(list => list.map(m => (m.id === id ? { ...m, ...p } : m)))
 
-  /* ---------------- handlers ----------------------------------------- */
+  /* ---------- handlers ---------- */
   const handleDelete = async (id: number) => {
     if (!confirm("Naozaj chcete zmazať tento materiál?")) return
-    setDel(id)
+    setDelId(id)
     try {
       await onDeleteMaterial(id)
     } finally {
-      setDel(null)
+      setDelId(null)
     }
   }
 
   const handleView = async (m: StudyMaterial) => {
     if (!token) return alert("Chyba autentifikácie.")
-    if (processingId === m.id) return
-    setProc(m.id)
-
+    if (procId === m.id) return
+    setProcId(m.id)
     try {
       const { blobUrl, fileType } = await fetchProtectedFileAsBlobUrl(m.id, token)
-      const isPdf =
-        (fileType && fileType.toLowerCase().includes("pdf")) ||
-        m.file_name.toLowerCase().endsWith(".pdf")
-
-      if (isPdf) {
-        setPdfView({
-          materialId: m.id,
-          blobUrl,
-          title: m.title || m.file_name,
-          fileType,
-        })
+      const pdf = (fileType?.includes("pdf") || m.file_name.toLowerCase().endsWith(".pdf"))
+      if (pdf) {
+        setPdfView({ materialId: m.id, blobUrl, title: m.title || m.file_name, fileType })
       } else {
         const a = document.createElement("a")
         a.href = blobUrl
@@ -151,27 +132,27 @@ export default function StudyMaterialList({
     } catch (e) {
       alert((e as Error).message)
     } finally {
-      setProc(null)
+      setProcId(null)
     }
   }
 
   const handleDownload = async (m: StudyMaterial) => {
     if (!token) return alert("Chyba autentifikácie.")
-    setProc(m.id)
+    setProcId(m.id)
     try {
       await downloadProtectedFile(m.id, m.file_name, token)
     } finally {
-      setProc(null)
+      setProcId(null)
     }
   }
 
-  /* ---------------- loading / error UI ------------------------------- */
+  /* ---------- loading / error UI ---------- */
   if (isLoading)
     return (
       <Card className="border-muted/40">
-        <CardContent className="py-12 text-center flex flex-col items-center gap-4">
+        <CardContent className="py-12 flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="font-medium">Načítavam materiály…</p>
+          <p>Načítavam materiály…</p>
         </CardContent>
       </Card>
     )
@@ -181,14 +162,14 @@ export default function StudyMaterialList({
       <Alert variant="destructive" className="border-destructive/20 bg-destructive/5">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <span className="font-medium">Chyba:</span> {error}
+          <b>Chyba:</b> {error}
         </AlertDescription>
       </Alert>
     )
 
   if (visible.length === 0)
     return (
-      <Card className="border-2 border-dashed border-border bg-muted/20">
+      <Card className="border-2 border-dashed bg-muted/20">
         <CardContent className="py-16 text-center">
           <BookOpen className="w-10 h-10 mx-auto text-primary mb-4" />
           <p className="text-muted-foreground">Žiadne materiály pre zvolený filter.</p>
@@ -196,15 +177,15 @@ export default function StudyMaterialList({
       </Card>
     )
 
-  /* ---------------- render ------------------------------------------- */
+  /* ---------- render ---------- */
   return (
     <TooltipProvider>
-      {/* ---------- HEADER + TAG FILTER ---------- */}
+      {/* HEADER + filter */}
       <Card className="border-muted/40 mb-4">
         <CardHeader className="pb-4 space-y-4">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            <CardTitle className="text-xl font-semibold">Študijné Materiály</CardTitle>
+            <CardTitle className="text-xl">Študijné Materiály</CardTitle>
             <Badge variant="outline" className="text-xs">
               {visible.length}/{materials.length}
             </Badge>
@@ -213,30 +194,29 @@ export default function StudyMaterialList({
           {allTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               {allTags.map(tag => {
-                const active = selectedTags.includes(tag)
+                const active = filter.includes(tag)
                 return (
                   <Badge
                     key={tag}
                     onClick={() =>
-                      setTags(a => (active ? a.filter(t => t !== tag) : [...a, tag]))
+                      setFilter(f => (active ? f.filter(t => t !== tag) : [...f, tag]))
                     }
-                    className={`cursor-pointer select-none ${
+                    className={`cursor-pointer ${
                       active
                         ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/70 text-muted-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/70"
                     }`}
                   >
                     #{tag}
                   </Badge>
                 )
               })}
-
-              {selectedTags.length > 0 && (
+              {filter.length > 0 && (
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 ml-1"
-                  onClick={() => setTags([])}
+                  onClick={() => setFilter([])}
                   title="Vymazať filter"
                 >
                   <X className="h-4 w-4" />
@@ -247,7 +227,7 @@ export default function StudyMaterialList({
         </CardHeader>
       </Card>
 
-      {/* ---------- LIST ---------- */}
+      {/* LIST */}
       <div className="grid gap-4">
         {visible.map((m, i) => (
           <Card
@@ -276,13 +256,13 @@ export default function StudyMaterialList({
                     <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <HardDrive className="h-3 w-3" />
-                        {formatFileSize(m.file_size)}
+                        {formatSize(m.file_size)}
                       </span>
                       {m.material_type && (
-                        <Badge variant="secondary">{formatEnumValue(m.material_type)}</Badge>
+                        <Badge variant="secondary">{formatEnum(m.material_type)}</Badge>
                       )}
                       {m.file_type && (
-                        <Badge variant="outline" className={getFileTypeColor(m.file_type)}>
+                        <Badge variant="outline" className={ftColor(m.file_type)}>
                           {m.file_type.split("/")[1]?.toUpperCase() ?? "FILE"}
                         </Badge>
                       )}
@@ -319,10 +299,10 @@ export default function StudyMaterialList({
                         variant="outline"
                         size="sm"
                         onClick={() => handleView(m)}
-                        disabled={processingId === m.id}
+                        disabled={procId === m.id}
                         className="h-8 w-8 p-0 sm:h-9 sm:px-3"
                       >
-                        {processingId === m.id ? (
+                        {procId === m.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Eye className="h-4 w-4" />
@@ -339,10 +319,10 @@ export default function StudyMaterialList({
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownload(m)}
-                        disabled={processingId === m.id}
+                        disabled={procId === m.id}
                         className="h-8 w-8 p-0 sm:h-9 sm:px-3"
                       >
-                        {processingId === m.id ? (
+                        {procId === m.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Download className="h-4 w-4" />
@@ -359,10 +339,10 @@ export default function StudyMaterialList({
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(m.id)}
-                        disabled={deletingId === m.id}
+                        disabled={delId === m.id}
                         className="h-8 w-8 p-0 sm:h-9 sm:px-3 text-destructive hover:bg-destructive/10"
                       >
-                        {deletingId === m.id ? (
+                        {delId === m.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Trash2 className="h-4 w-4" />
@@ -378,15 +358,16 @@ export default function StudyMaterialList({
         ))}
       </div>
 
-      {/* ---------- PDF VIEWER ---------- */}
+      {/* PDF dialóg */}
       <SimplePdfViewer
         isOpen={!!pdfView}
         onOpenChange={o => !o && setPdfView(null)}
         blobUrl={pdfView?.blobUrl ?? null}
         title={pdfView?.title}
         materialId={pdfView?.materialId ?? 0}
-        onTagsGenerated={(id, tags) => mutate(id, { tags })}
-        onSummaryGenerated={(id, summary) => mutate(id, { summary: summary })}
+        /* ↓–– realtime sync ––↓ */
+        onTagsGenerated={(id, tags) => patch(id, { tags })}
+        onSummaryGenerated={(id, s) => patch(id, { summary: s })}
       />
     </TooltipProvider>
   )

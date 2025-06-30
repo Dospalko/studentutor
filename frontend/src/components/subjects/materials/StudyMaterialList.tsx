@@ -1,20 +1,27 @@
 /* ----------------------------------------------------------------------- */
-/*  StudyMaterialList – filter podľa tagov + spoľahlivý náhľad PDF         */
+/*  StudyMaterialList – live filter + sync po AI generovaní                */
 /* ----------------------------------------------------------------------- */
 "use client"
 
-import { useState, useContext, useMemo } from "react"
+import { useState, useContext, useMemo, useEffect } from "react"
 import {
   type StudyMaterial,
   fetchProtectedFileAsBlobUrl,
   downloadProtectedFile,
-  fetchMaterialSummary,
 } from "@/services/studyMaterialService"
 import { AuthContext } from "@/context/AuthContext"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+
 import {
   FileText,
   Download,
@@ -27,13 +34,8 @@ import {
   BookOpen,
   X,
 } from "lucide-react"
+
 import SimplePdfViewer from "@/components/subjects/materials/SimplePdfViewer"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 /* ---------- helpers ---------------------------------------------------- */
 const formatEnumValue = (v?: string | null) =>
@@ -51,7 +53,7 @@ const formatFileSize = (bytes?: number | null) => {
 const getFileTypeColor = (ft: string | null) => {
   if (!ft) return "bg-muted/50 text-muted-foreground"
   const t = ft.toLowerCase()
-  if (t.includes("pdf"))   return "bg-red-100 text-red-700  dark:bg-red-900/30  dark:text-red-300"
+  if (t.includes("pdf"))   return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
   if (t.includes("doc"))   return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
   if (t.includes("image")) return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
   if (t.includes("text"))  return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300"
@@ -66,29 +68,33 @@ interface Props {
   error?: string | null
 }
 
-type PdfState = {
-  materialId: number
-  blobUrl: string
-  title: string
-  fileType: string | null
-  summary?: string | null
-  summaryError?: string | null
-} | null
+type PdfState =
+  | {
+      materialId: number
+      blobUrl: string
+      title: string
+      fileType: string | null
+    }
+  | null
 
-export default function StudyMaterialList ({
-  materials,
+export default function StudyMaterialList({
+  materials: initialMaterials,
   onDeleteMaterial,
   isLoading,
   error,
 }: Props) {
-  /* --------------------- lokálne stavy -------------------------------- */
-  const [pdfView,      setPdfView] = useState<PdfState>(null)
-  const [processingId, setProcId]  = useState<number | null>(null)
-  const [deletingId,   setDelId]   = useState<number | null>(null)
-  const [selectedTags, setTags]    = useState<string[]>([])
-  const { token }                  = useContext(AuthContext) ?? {}
+  /* ---------------- lokálne stavy ------------------------------------ */
+  const [materials, setMaterials] = useState<StudyMaterial[]>(initialMaterials)
+  const [pdfView, setPdfView]     = useState<PdfState>(null)
+  const [processingId, setProc]   = useState<number | null>(null)
+  const [deletingId, setDel]      = useState<number | null>(null)
+  const [selectedTags, setTags]   = useState<string[]>([])
+  const { token }                 = useContext(AuthContext) ?? {}
 
-  /* --------------------- TAGS ----------------------------------------- */
+  /* synchronizácia po refetech z parenta */
+  useEffect(() => setMaterials(initialMaterials), [initialMaterials])
+
+  /* ---------------- TAGS & filter ------------------------------------ */
   const allTags = useMemo(() => {
     const s = new Set<string>()
     materials.forEach(m => (m.tags ?? []).forEach(t => s.add(t)))
@@ -100,43 +106,40 @@ export default function StudyMaterialList ({
     return materials.filter(m => selectedTags.every(t => (m.tags ?? []).includes(t)))
   }, [materials, selectedTags])
 
-  /* --------------------- handlers ------------------------------------- */
+  /* ---------------- helper na patch lokálneho záznamu ---------------- */
+  const mutate = (id: number, patch: Partial<StudyMaterial>) =>
+    setMaterials(list => list.map(m => (m.id === id ? { ...m, ...patch } : m)))
+
+  /* ---------------- handlers ----------------------------------------- */
   const handleDelete = async (id: number) => {
     if (!confirm("Naozaj chcete zmazať tento materiál?")) return
-    setDelId(id)
-    try { await onDeleteMaterial(id) } finally { setDelId(null) }
+    setDel(id)
+    try {
+      await onDeleteMaterial(id)
+    } finally {
+      setDel(null)
+    }
   }
 
-  /**
-   * Otvorí PDF vo viewer-i alebo pri iných formátoch spustí download.
-   * Rozhodujeme podľa `Content-Type` **alebo** fallback na príponu,
-   * lebo backend nie vždy pošle hlavičku.
-   */
   const handleView = async (m: StudyMaterial) => {
     if (!token) return alert("Chyba autentifikácie.")
     if (processingId === m.id) return
-    setProcId(m.id)
+    setProc(m.id)
 
     try {
       const { blobUrl, fileType } = await fetchProtectedFileAsBlobUrl(m.id, token)
-
       const isPdf =
         (fileType && fileType.toLowerCase().includes("pdf")) ||
-        m.file_name.toLowerCase().endsWith(".pdf")        // ← fallback
+        m.file_name.toLowerCase().endsWith(".pdf")
 
       if (isPdf) {
-        setPdfView({ materialId: m.id, blobUrl, title: m.title || m.file_name, fileType })
-
-        // voliteľný AI súhrn (ticho ak zlyhá)
-        fetchMaterialSummary(m.id, token)
-          .then(r =>
-            setPdfView(s => (s ? { ...s, summary: r.summary, summaryError: r.ai_error } : s))
-          )
-          .catch(e =>
-            setPdfView(s => (s ? { ...s, summaryError: (e as Error).message } : s))
-          )
+        setPdfView({
+          materialId: m.id,
+          blobUrl,
+          title: m.title || m.file_name,
+          fileType,
+        })
       } else {
-        // ne-PDF – len stiahni
         const a = document.createElement("a")
         a.href = blobUrl
         a.download = m.file_name
@@ -148,18 +151,21 @@ export default function StudyMaterialList ({
     } catch (e) {
       alert((e as Error).message)
     } finally {
-      setProcId(null)
+      setProc(null)
     }
   }
 
   const handleDownload = async (m: StudyMaterial) => {
     if (!token) return alert("Chyba autentifikácie.")
-    setProcId(m.id)
-    try { await downloadProtectedFile(m.id, m.file_name, token) }
-    finally { setProcId(null) }
+    setProc(m.id)
+    try {
+      await downloadProtectedFile(m.id, m.file_name, token)
+    } finally {
+      setProc(null)
+    }
   }
 
-  /* --------------------- loading / error ------------------------------ */
+  /* ---------------- loading / error UI ------------------------------- */
   if (isLoading)
     return (
       <Card className="border-muted/40">
@@ -185,24 +191,20 @@ export default function StudyMaterialList ({
       <Card className="border-2 border-dashed border-border bg-muted/20">
         <CardContent className="py-16 text-center">
           <BookOpen className="w-10 h-10 mx-auto text-primary mb-4" />
-          <p className="text-muted-foreground">
-            Žiadne materiály pre zvolený filter.
-          </p>
+          <p className="text-muted-foreground">Žiadne materiály pre zvolený filter.</p>
         </CardContent>
       </Card>
     )
 
-  /* --------------------- render --------------------------------------- */
+  /* ---------------- render ------------------------------------------- */
   return (
     <TooltipProvider>
-      {/* ------------------- HEADER + TAG FILTER ------------------------ */}
+      {/* ---------- HEADER + TAG FILTER ---------- */}
       <Card className="border-muted/40 mb-4">
         <CardHeader className="pb-4 space-y-4">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            <CardTitle className="text-xl font-semibold">
-              Študijné Materiály
-            </CardTitle>
+            <CardTitle className="text-xl font-semibold">Študijné Materiály</CardTitle>
             <Badge variant="outline" className="text-xs">
               {visible.length}/{materials.length}
             </Badge>
@@ -245,7 +247,7 @@ export default function StudyMaterialList ({
         </CardHeader>
       </Card>
 
-      {/* ------------------- LIST --------------------------------------- */}
+      {/* ---------- LIST ---------- */}
       <div className="grid gap-4">
         {visible.map((m, i) => (
           <Card
@@ -255,7 +257,7 @@ export default function StudyMaterialList ({
           >
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                {/* ---------------- META -------------------------------- */}
+                {/* META */}
                 <div className="flex gap-4 flex-grow min-w-0">
                   <FileText className="h-6 w-6 text-primary flex-shrink-0" />
                   <div className="min-w-0">
@@ -277,15 +279,10 @@ export default function StudyMaterialList ({
                         {formatFileSize(m.file_size)}
                       </span>
                       {m.material_type && (
-                        <Badge variant="secondary">
-                          {formatEnumValue(m.material_type)}
-                        </Badge>
+                        <Badge variant="secondary">{formatEnumValue(m.material_type)}</Badge>
                       )}
                       {m.file_type && (
-                        <Badge
-                          variant="outline"
-                          className={getFileTypeColor(m.file_type)}
-                        >
+                        <Badge variant="outline" className={getFileTypeColor(m.file_type)}>
                           {m.file_type.split("/")[1]?.toUpperCase() ?? "FILE"}
                         </Badge>
                       )}
@@ -313,7 +310,7 @@ export default function StudyMaterialList ({
                   </div>
                 </div>
 
-                {/* ---------------- ACTIONS ----------------------------- */}
+                {/* ACTIONS */}
                 <div className="flex gap-2 flex-shrink-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition">
                   {/* view */}
                   <Tooltip>
@@ -381,13 +378,15 @@ export default function StudyMaterialList ({
         ))}
       </div>
 
-      {/* ------------------- PDF VIEWER ---------------------------------- */}
+      {/* ---------- PDF VIEWER ---------- */}
       <SimplePdfViewer
         isOpen={!!pdfView}
         onOpenChange={o => !o && setPdfView(null)}
         blobUrl={pdfView?.blobUrl ?? null}
         title={pdfView?.title}
         materialId={pdfView?.materialId ?? 0}
+        onTagsGenerated={(id, tags) => mutate(id, { tags })}
+        onSummaryGenerated={(id, summary) => mutate(id, { summary: summary })}
       />
     </TooltipProvider>
   )

@@ -1,14 +1,17 @@
-"use client";
+/* --------------------------------------------------------------------- */
+/*  SimplePdfViewer – generuje AI a hlási výsledky parentovi             */
+/* --------------------------------------------------------------------- */
+"use client"
 
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext } from "react"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   X,
   FileText,
@@ -16,21 +19,23 @@ import {
   ExternalLink,
   Brain,
   Loader2,
-} from "lucide-react";
-import { AuthContext } from "@/context/AuthContext";
+} from "lucide-react"
+import { AuthContext } from "@/context/AuthContext"
 import {
-  fetchMaterialSummary,
-  fetchMaterialTags,
   generateMaterialSummary,
   generateMaterialTags,
-} from "@/services/studyMaterialService";
+} from "@/services/studyMaterialService"
 
 interface Props {
-  isOpen: boolean;
-  onOpenChange: (o: boolean) => void;
-  blobUrl: string | null;
-  title?: string;
-  materialId: number;
+  isOpen: boolean
+  onOpenChange: (o: boolean) => void
+  blobUrl: string | null
+  title?: string
+  materialId: number
+  /**  ⇢ po úspešnom generovaní tagov */
+  onTagsGenerated?: (id: number, tags: string[]) => void
+  /**  ⇢ po úspešnom generovaní sumáru */
+  onSummaryGenerated?: (id: number, summary: string | null) => void
 }
 
 export default function SimplePdfViewer({
@@ -39,97 +44,82 @@ export default function SimplePdfViewer({
   isOpen,
   onOpenChange,
   materialId,
+  onTagsGenerated,
+  onSummaryGenerated,
 }: Props) {
-  const { token } = useContext(AuthContext) ?? {};
+  const { token } = useContext(AuthContext) ?? {}
 
-  /* UI state ------------------------------------------------------------ */
-  const [effTitle, setEffTitle] = useState("Dokument");
-  const [iframeLoading, setIframeLoading] = useState(true);
+  /* UI state */
+  const [effTitle, setEffTitle] = useState("Dokument")
+  const [iframeLoading, setIframeLoading] = useState(true)
 
-  /* AI – summary -------------------------------------------------------- */
-  const [summary, setSummary] = useState<string | null>(null);
-  const [sumLoading, setSumLoading] = useState(false);
-  const [sumError, setSumError] = useState<string | null>(null);
+  /* AI – summary & tags */
+  const [summary, setSummary] = useState<string | null>(null)
+  const [sumLoading, setSumLoading] = useState(false)
+  const [sumError, setSumError] = useState<string | null>(null)
 
-  /* AI – tags ----------------------------------------------------------- */
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagsError, setTagsError] = useState<string | null>(null);
-  const [wordCount, setWordCount] = useState<number | null>(null); // 💡 PRIDANÉ
+  const [tags, setTags] = useState<string[]>([])
+  const [tagsError, setTagsError] = useState<string | null>(null)
 
-  /* -------------------------------------------------------------------- */
-
-  /* reset pri zatvorení ------------------------------------------------- */
+  /* reset po zatvorení */
   useEffect(() => {
     if (!isOpen) {
-      setSummary(null);
-      setSumError(null);
-      setTags([]);
-      setTagsError(null);
-      setSumLoading(false);
+      setSummary(null)
+      setSumError(null)
+      setTags([])
+      setTagsError(null)
+      setSumLoading(false)
     }
-  }, [isOpen]);
+  }, [isOpen])
 
-  /* aktualizuj zobrazený titul ------------------------------------------ */
-  useEffect(() => setEffTitle(title?.trim() || "Dokument"), [title]);
+  useEffect(() => setEffTitle(title?.trim() || "Dokument"), [title])
 
-  /* po otvorení dialógu – skús načítať kešované AI dáta ------------------ */
-  useEffect(() => {
-    if (!isOpen || !token || !materialId) return;
-
-    fetchMaterialSummary(materialId, token)
-      .then((s) => {
-        setSummary(s.summary);
-        setSumError(s.ai_error ?? null);
-        setWordCount(s.word_count ?? null); // 💡 PRIDANÉ
-      })
-      .catch(() => {});
-
-    fetchMaterialTags(materialId, token)
-      .then(setTags)
-      .catch(() => {});
-  }, [isOpen, token, materialId]);
-
-  /* -------------------------------------------------------------------- */
+  /* helpers na download / open-in-new-tab */
   const handleDownload = () => {
-    if (!blobUrl) return;
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = `${effTitle}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
+    if (!blobUrl) return
+    const a = document.createElement("a")
+    a.href = blobUrl
+    a.download = `${effTitle}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
 
-  const handleOpenNew = () => blobUrl && window.open(blobUrl, "_blank");
+  const handleOpenNew = () => blobUrl && window.open(blobUrl, "_blank")
 
-  /* klik na AI tlačidlo ------------------------------------------------- */
+  /* AI generovanie */
   const handleGenerateAI = async () => {
-    if (!token) return alert("Chyba autentifikácie.");
-    setSumLoading(true);
-    setSumError(null);
-    setTagsError(null);
+    if (!token) return alert("Chyba autentifikácie.")
+    setSumLoading(true)
+    setSumError(null)
+    setTagsError(null)
 
     try {
       const [sumRes, tagRes] = await Promise.all([
         generateMaterialSummary(materialId, token),
         generateMaterialTags(materialId, token),
-      ]);
-      setSummary(sumRes.summary);
-      if (sumRes.ai_error) setSumError(sumRes.ai_error);
-      setTags(tagRes);
+      ])
+
+      setSummary(sumRes.summary)
+      if (sumRes.ai_error) setSumError(sumRes.ai_error)
+      setTags(tagRes)
+
+      /* ---- spätné volania ---- */
+      onTagsGenerated?.(materialId, tagRes)
+      onSummaryGenerated?.(materialId, sumRes.summary)
     } catch (e) {
-      const msg = (e as Error).message;
-      if (msg.includes("sumarizácia")) setSumError(msg);
-      else setTagsError(msg);
+      const msg = (e as Error).message
+      if (msg.includes("sumarizácia")) setSumError(msg)
+      else setTagsError(msg)
     } finally {
-      setSumLoading(false);
+      setSumLoading(false)
     }
-  };
+  }
 
-  /* -------------------------------------------------------------------- */
-  if (!isOpen || !blobUrl) return null;
+  /* ------------------------------------------------------------------- */
+  if (!isOpen || !blobUrl) return null
 
-  const needAI = !summary || !!sumError || tags.length === 0;
+  const needAI = (!summary || !!sumError) || tags.length === 0
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -142,16 +132,9 @@ export default function SimplePdfViewer({
             </span>
             <div className="min-w-0">
               <DialogTitle className="truncate">{effTitle}</DialogTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-xs">
-                  PDF Dokument
-                </Badge>
-                {wordCount !== null && ( // 💡 PRIDANÉ
-                  <span className="text-xs text-muted-foreground">
-                    {wordCount} slov
-                  </span>
-                )}
-              </div>
+              <Badge variant="outline" className="text-xs mt-1">
+                PDF Dokument
+              </Badge>
             </div>
           </div>
 
@@ -162,11 +145,7 @@ export default function SimplePdfViewer({
             <Button variant="ghost" size="icon" onClick={handleOpenNew}>
               <ExternalLink className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -198,24 +177,18 @@ export default function SimplePdfViewer({
             {/* TAGY ------------------------------------------------------- */}
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 text-xs">
-                {tags.map((t) => (
-                  <Badge
-                    key={t}
-                    variant="outline"
-                    className="bg-muted text-muted-foreground"
-                  >
+                {tags.map(t => (
+                  <Badge key={t} variant="outline" className="bg-muted text-muted-foreground">
                     #{t}
                   </Badge>
                 ))}
               </div>
             )}
             {tagsError && (
-              <p className="text-sm text-destructive">
-                Chyba tagov: {tagsError}
-              </p>
+              <p className="text-sm text-destructive">Chyba tagov: {tagsError}</p>
             )}
 
-            {/* AI TLAČIDLO ------------------------------------------------ */}
+            {/* AI BUTTON -------------------------------------------------- */}
             {needAI && !sumLoading && (
               <Button variant="secondary" size="sm" onClick={handleGenerateAI}>
                 <Brain className="h-4 w-4 mr-2" /> Generovať AI
@@ -239,7 +212,7 @@ export default function SimplePdfViewer({
               <div className="text-sm space-y-2">
                 {summary
                   .split("\n")
-                  .filter((l) => l.trim().startsWith("•"))
+                  .filter(l => l.trim().startsWith("•"))
                   .map((l, i) => (
                     <div key={i} className="flex gap-2">
                       <span className="text-primary font-bold">•</span>
@@ -267,5 +240,5 @@ export default function SimplePdfViewer({
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

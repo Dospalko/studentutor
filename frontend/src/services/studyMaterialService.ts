@@ -17,6 +17,7 @@ export interface StudyMaterial {
   subject_id: number;
   owner_id: number;
   extracted_text?: string | null;
+  tags?: string[];
 }
 
 export interface StudyMaterialMetadata {

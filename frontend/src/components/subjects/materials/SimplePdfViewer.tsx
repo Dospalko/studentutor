@@ -1,6 +1,5 @@
 /* --------------------------------------------------------------------- */
 /*  SimplePdfViewer – načíta uložené AI dáta, generuje len ak chýbajú     */
-/*  + manuálna editácia summary a tagov                                  */
 /* --------------------------------------------------------------------- */
 "use client"
 
@@ -13,8 +12,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import {
   X,
   FileText,
@@ -22,8 +19,6 @@ import {
   ExternalLink,
   Brain,
   Loader2,
-  Edit3,
-  Check,
 } from "lucide-react"
 import { AuthContext } from "@/context/AuthContext"
 import {
@@ -31,7 +26,6 @@ import {
   fetchMaterialTags,
   generateMaterialSummary,
   generateMaterialTags,
-  patchMaterial,
 } from "@/services/studyMaterialService"
 
 interface Props {
@@ -59,17 +53,12 @@ export default function SimplePdfViewer({
   const [pdfTitle, setPdfTitle] = useState("Dokument")
   const [frameLoading, setFrameLoading] = useState(true)
 
-  /* AI dáta */
+  /* AI */
   const [summary, setSummary] = useState<string | null>(null)
-  const [tags, setTags]       = useState<string[]>([])
-  const [aiLoading, setAiLoading] = useState(false)
-  const [sumErr, setSumErr]   = useState<string | null>(null)
-  const [tagErr, setTagErr]   = useState<string | null>(null)
-
-  /* edit režim */
-  const [isEditing, setIsEditing]   = useState(false)
-  const [editSummary, setEditSummary] = useState("")
-  const [editTags, setEditTags]     = useState("")
+  const [tags, setTags] = useState<string[]>([])
+  const [aiLoading, setLoading] = useState(false)
+  const [sumErr, setSumErr] = useState<string | null>(null)
+  const [tagErr, setTagErr] = useState<string | null>(null)
 
   /* reset po zatvorení */
   useEffect(() => {
@@ -78,75 +67,37 @@ export default function SimplePdfViewer({
       setTags([])
       setSumErr(null)
       setTagErr(null)
-      setAiLoading(false)
-      setIsEditing(false)
+      setLoading(false)
     }
   }, [isOpen])
 
-  useEffect(() => setPdfTitle(title?.trim() || "Dokument"), [title])
+  /* update názvu */
+  useEffect(() => {
+    setPdfTitle(title?.trim() || "Dokument")
+  }, [title])
 
-  /* načítaj existujúce AI dáta */
+  /* ––– načítaj existujúce AI dáta po otvorení ––– */
   useEffect(() => {
     if (!isOpen || !token || !materialId) return
 
     Promise.allSettled([
       fetchMaterialSummary(materialId, token),
       fetchMaterialTags(materialId, token),
-    ]).then(results => {
-      const [sumRes, tagRes] = results
+    ]).then(([sumRes, tagRes]) => {
       if (sumRes.status === "fulfilled") {
         setSummary(sumRes.value.summary)
         setSumErr(sumRes.value.ai_error ?? null)
-        if (sumRes.value.summary) onSummaryGenerated?.(materialId, sumRes.value.summary)
       }
       if (tagRes.status === "fulfilled") {
         setTags(tagRes.value)
-        if (tagRes.value.length) onTagsGenerated?.(materialId, tagRes.value)
       }
     })
-  }, [isOpen, token, materialId, onTagsGenerated, onSummaryGenerated])
+  }, [isOpen, token, materialId])
 
-  /* pripravi editačné polia */
-  useEffect(() => {
-    if (isEditing) {
-      setEditSummary(summary ?? "")
-      setEditTags(tags.join(", "))
-    }
-  }, [isEditing, summary, tags])
-
-  /* uloženie editu */
-  const saveEdits = async () => {
-    if (!token) return alert("Chyba autentifikácie.")
-    setAiLoading(true)
-    setSumErr(null)
-    setTagErr(null)
-    try {
-      const newTags = editTags
-        .split(",")
-        .map(t => t.trim())
-        .filter(Boolean)
-      await patchMaterial(
-        materialId,
-        { ai_summary: editSummary, tags: newTags },
-        token
-      )
-      setSummary(editSummary)
-      setTags(newTags)
-      onSummaryGenerated?.(materialId, editSummary)
-      onTagsGenerated?.(materialId, newTags)
-      setIsEditing(false)
-    } catch (e) {
-      const msg = (e as Error).message
-      setSumErr(msg)
-    } finally {
-      setAiLoading(false)
-    }
-  }
-
-  /* generovanie AI na požiadanie */
+  /* ––– voliteľné generovanie ––– */
   const handleGenerate = async () => {
     if (!token) return alert("Chyba autentifikácie.")
-    setAiLoading(true)
+    setLoading(true)
     setSumErr(null)
     setTagErr(null)
     try {
@@ -164,12 +115,13 @@ export default function SimplePdfViewer({
       if (msg.toLowerCase().includes("tag")) setTagErr(msg)
       else setSumErr(msg)
     } finally {
-      setAiLoading(false)
+      setLoading(false)
     }
   }
 
   const needAI = (!summary && !sumErr) || tags.length === 0
 
+  /* ------------------------------------------------------------------- */
   if (!isOpen || !blobUrl) return null
 
   return (
@@ -189,18 +141,30 @@ export default function SimplePdfViewer({
             </div>
           </div>
           <div className="flex gap-2 items-center">
-            <Button variant="ghost" size="icon" onClick={() => {
-              const a = document.createElement("a")
-              a.href = blobUrl
-              a.download = `${pdfTitle}.pdf`
-              a.click()
-            }}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                const a = document.createElement("a")
+                a.href = blobUrl
+                a.download = `${pdfTitle}.pdf`
+                a.click()
+              }}
+            >
               <Download className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => window.open(blobUrl, "_blank")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => window.open(blobUrl, "_blank")}
+            >
               <ExternalLink className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -208,7 +172,6 @@ export default function SimplePdfViewer({
 
         {/* BODY */}
         <div className="flex flex-1 overflow-hidden">
-          {/* PDF */}
           <div className="flex-1 relative bg-background">
             {frameLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
@@ -223,78 +186,70 @@ export default function SimplePdfViewer({
             />
           </div>
 
-          {/* SIDE PANEL */}
           <div className="w-full sm:w-72 lg:w-96 border-l p-4 space-y-3 overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h4 className="flex items-center gap-2 font-semibold">
-                <Brain className="h-4 w-4 text-primary" /> AI súhrn
-              </h4>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsEditing(e => !e)}
-                title={isEditing ? "Zrušiť edit" : "Editovať"}
-              >
-                {isEditing ? <X className="h-4 w-4" /> : <Edit3 className="h-4 w-4" />}
+            <h4 className="flex items-center gap-2 font-semibold">
+              <Brain className="h-4 w-4 text-primary" /> AI súhrn
+            </h4>
+
+            {/* TAGY */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                {tags.map((t) => (
+                  <Badge
+                    key={t}
+                    variant="outline"
+                    className="bg-muted text-muted-foreground"
+                  >
+                    #{t}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {tagErr && (
+              <p className="text-sm text-destructive">Chyba tagov: {tagErr}</p>
+            )}
+
+            {/* AI BUTTON */}
+            {needAI && !aiLoading && (
+              <Button variant="secondary" size="sm" onClick={handleGenerate}>
+                <Brain className="h-4 w-4 mr-2" /> Generovať AI
               </Button>
-            </div>
+            )}
+            {aiLoading && (
+              <p className="text-sm flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Generujem…
+              </p>
+            )}
 
-            {isEditing ? (
-              <>
-                <Textarea
-                  className="mb-2"
-                  rows={6}
-                  value={editSummary}
-                  onChange={e => setEditSummary(e.currentTarget.value)}
-                />
-                <Input
-                  className="mb-2"
-                  value={editTags}
-                  onChange={e => setEditTags(e.currentTarget.value)}
-                  placeholder="tag1, tag2, ..."
-                />
-                {(sumErr || tagErr) && (
-                  <p className="text-sm text-destructive">
-                    {sumErr ?? tagErr}
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Button onClick={saveEdits} disabled={aiLoading}>
-                    {aiLoading ? <Loader2 className="animate-spin h-4 w-4" /> : <Check className="h-4 w-4" />}
-                    Uložiť
-                  </Button>
-                  <Button variant="secondary" onClick={handleGenerate} disabled={aiLoading}>
-                    <Brain className="h-4 w-4 mr-1" /> Regenerovať
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                {summary ? (
-                  <div className="text-sm space-y-2 whitespace-pre-wrap">
-                    {summary.split("\n").map((l, i) => (
-                      <p key={i}>{l}</p>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm italic text-muted-foreground">
-                    Žiadny súhrn.
-                  </p>
-                )}
+            {sumErr && <p className="text-sm text-destructive">Chyba: {sumErr}</p>}
 
-                <div className="flex flex-wrap gap-1">
-                  {tags.map(t => (
-                    <Badge key={t} variant="outline">#{t}</Badge>
+            {summary && !sumErr && (
+              <div className="text-sm space-y-2">
+                {summary
+                  .split("\n")
+                  .filter((l) => l.trim().startsWith("•"))
+                  .map((l, i) => (
+                    <div key={i} className="flex gap-2">
+                      <span className="text-primary font-bold">•</span>
+                      <span>{l.replace(/^•\s*/, "")}</span>
+                    </div>
                   ))}
-                </div>
 
-                {needAI && (
-                  <Button className="mt-2" onClick={handleGenerate} disabled={aiLoading}>
-                    {aiLoading ? <Loader2 className="animate-spin h-4 w-4" /> : <Brain className="h-4 w-4 mr-1" />}
-                    Generovať AI
-                  </Button>
+                {summary.includes("Sumarizácia:") && (
+                  <div className="pt-3 border-t text-muted-foreground">
+                    <h5 className="font-semibold mb-1">Sumarizácia:</h5>
+                    <p className="whitespace-pre-wrap">
+                      {summary.split("Sumarizácia:")[1].trim()}
+                    </p>
+                  </div>
                 )}
-              </>
+              </div>
+            )}
+
+            {!summary && !aiLoading && !sumErr && (
+              <p className="text-sm text-muted-foreground italic">
+                Súhrn zatiaľ nebol vygenerovaný.
+              </p>
             )}
           </div>
         </div>

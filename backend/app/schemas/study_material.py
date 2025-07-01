@@ -23,7 +23,12 @@ class StudyMaterialCreate(StudyMaterialBase):
 
 
 class StudyMaterialUpdate(StudyMaterialBase):
-    pass
+    # Pridáme editovateľné polia
+    tags: Optional[List[str]] = None
+    ai_summary: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 # ───────────────────────────────

@@ -148,3 +148,26 @@ export const generateMaterialTags = (id: number, token: string) =>
   );
 
   
+
+
+  export interface PatchMaterialPayload {
+    tags?: string[];
+    ai_summary?: string;
+  }
+  
+  export const patchMaterial = (
+    id: number,
+    payload: PatchMaterialPayload,
+    token: string
+  ): Promise<StudyMaterial> =>
+    fetchJson<StudyMaterial>(
+      `/materials/${id}`,
+      token,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );

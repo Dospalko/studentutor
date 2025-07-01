@@ -281,7 +281,7 @@ def generate_tags_for_material(
 @material_router.patch(
     "/{material_id}",
     response_model=sm_schema.StudyMaterial,
-    summary="Uprav AI súhrn alebo tagy",
+    summary="Edit AI summary or tags",
 )
 def patch_material(
     material_id: int,
@@ -289,22 +289,19 @@ def patch_material(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_active_user),
 ):
-    """
-    Umožni manuálnu úpravu `ai_summary` a/alebo `tags`.
-    """
     mat = crud.get_study_material(db, material_id, current_user.id)
     if not mat:
         raise HTTPException(status_code=404, detail="Material not found")
 
-    data = patch.model_dump(exclude_unset=True)
-    # ak meníme tagy, uložíme JSON
+    data = patch.model_dump(by_alias=True, exclude_unset=True)
+    # handle tags JSON
     if "tags" in data:
         mat.tags = json.dumps(data.pop("tags"), ensure_ascii=False)
-    # ak meníme summary
+    # handle ai_summary
     if "ai_summary" in data:
         mat.ai_summary = data.pop("ai_summary")
 
-    # ostatné polia (title, description, material_type) CRUD vie
+    # remaining fields (title, description, material_type)
     for k, v in data.items():
         setattr(mat, k, v)
 

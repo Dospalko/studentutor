@@ -39,12 +39,19 @@ export interface MaterialSummaryResponse {
 async function fetchJson<T>(
   url: string,
   token: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
 ): Promise<T> {
+  /* 🔧  MERGE – zachováme hlavičky z init.headers */
+  const mergedHeaders: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    ...(init.headers as Record<string, string> | undefined),
+  };
+
   const res = await fetch(API_BASE_URL + url, {
     ...init,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: mergedHeaders,
   });
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `HTTP ${res.status}`);
@@ -171,3 +178,5 @@ export const generateMaterialTags = (id: number, token: string) =>
         body: JSON.stringify(payload),
       }
     );
+
+    

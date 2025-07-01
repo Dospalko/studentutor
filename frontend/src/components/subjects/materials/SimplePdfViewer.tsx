@@ -1,6 +1,4 @@
-/* --------------------------------------------------------------------- */
-/*  SimplePdfViewer – načíta uložené AI dáta, generuje len ak chýbajú     */
-/* --------------------------------------------------------------------- */
+// frontend/src/components/subjects/materials/SimplePdfViewer.tsx
 "use client"
 
 import { useEffect, useState, useContext } from "react"
@@ -19,6 +17,8 @@ import {
   ExternalLink,
   Brain,
   Loader2,
+  Edit2,
+  Check,
 } from "lucide-react"
 import { AuthContext } from "@/context/AuthContext"
 import {
@@ -26,7 +26,9 @@ import {
   fetchMaterialTags,
   generateMaterialSummary,
   generateMaterialTags,
+  patchMaterial,
 } from "@/services/studyMaterialService"
+import { Textarea } from "@/components/ui/textarea"
 
 interface Props {
   isOpen: boolean
@@ -53,50 +55,56 @@ export default function SimplePdfViewer({
   const [pdfTitle, setPdfTitle] = useState("Dokument")
   const [frameLoading, setFrameLoading] = useState(true)
 
-  /* AI */
+  /* AI data */
   const [summary, setSummary] = useState<string | null>(null)
   const [tags, setTags] = useState<string[]>([])
-  const [aiLoading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [sumErr, setSumErr] = useState<string | null>(null)
   const [tagErr, setTagErr] = useState<string | null>(null)
 
-  /* reset po zatvorení */
-  useEffect(() => {
-    if (!isOpen) {
-      setSummary(null)
-      setTags([])
-      setSumErr(null)
-      setTagErr(null)
-      setLoading(false)
-    }
-  }, [isOpen])
+  /* edit mode */
+  const [editMode, setEditMode] = useState(false)
+  const [draftSummary, setDraftSummary] = useState<string>("")
+  const [draftTags, setDraftTags] = useState<string[]>([])
 
-  /* update názvu */
-  useEffect(() => {
-    setPdfTitle(title?.trim() || "Dokument")
-  }, [title])
-
-  /* ––– načítaj existujúce AI dáta po otvorení ––– */
+  /* load existing AI data */
   useEffect(() => {
     if (!isOpen || !token || !materialId) return
-
     Promise.allSettled([
       fetchMaterialSummary(materialId, token),
       fetchMaterialTags(materialId, token),
     ]).then(([sumRes, tagRes]) => {
       if (sumRes.status === "fulfilled") {
         setSummary(sumRes.value.summary)
+        setDraftSummary(sumRes.value.summary ?? "")
         setSumErr(sumRes.value.ai_error ?? null)
       }
       if (tagRes.status === "fulfilled") {
         setTags(tagRes.value)
+        setDraftTags(tagRes.value)
       }
     })
   }, [isOpen, token, materialId])
 
-  /* ––– voliteľné generovanie ––– */
+  /* reset on close */
+  useEffect(() => {
+    if (!isOpen) {
+      setEditMode(false)
+      setDraftSummary("")
+      setDraftTags([])
+      setLoading(false)
+      setSumErr(null)
+      setTagErr(null)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    setPdfTitle(title?.trim() || "Dokument")
+  }, [title])
+
+  /* generate AI */
   const handleGenerate = async () => {
-    if (!token) return alert("Chyba autentifikácie.")
+    if (!token) return
     setLoading(true)
     setSumErr(null)
     setTagErr(null)
@@ -106,8 +114,9 @@ export default function SimplePdfViewer({
         generateMaterialTags(materialId, token),
       ])
       setSummary(s.summary)
-      setSumErr(s.ai_error ?? null)
+      setDraftSummary(s.summary ?? "")
       setTags(t)
+      setDraftTags(t)
       onSummaryGenerated?.(materialId, s.summary)
       onTagsGenerated?.(materialId, t)
     } catch (e) {
@@ -119,9 +128,26 @@ export default function SimplePdfViewer({
     }
   }
 
+  /* save manual edits */
+  const handleSaveEdits = async () => {
+    if (!token) return
+    setLoading(true)
+    try {
+      await patchMaterial(materialId, { ai_summary: draftSummary, tags: draftTags }, token)
+      setSummary(draftSummary)
+      setTags(draftTags)
+      onSummaryGenerated?.(materialId, draftSummary)
+      onTagsGenerated?.(materialId, draftTags)
+      setEditMode(false)
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const needAI = (!summary && !sumErr) || tags.length === 0
 
-  /* ------------------------------------------------------------------- */
   if (!isOpen || !blobUrl) return null
 
   return (
@@ -187,70 +213,107 @@ export default function SimplePdfViewer({
           </div>
 
           <div className="w-full sm:w-72 lg:w-96 border-l p-4 space-y-3 overflow-y-auto">
-            <h4 className="flex items-center gap-2 font-semibold">
-              <Brain className="h-4 w-4 text-primary" /> AI súhrn
-            </h4>
-
-            {/* TAGY */}
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 text-xs">
-                {tags.map((t) => (
-                  <Badge
-                    key={t}
-                    variant="outline"
-                    className="bg-muted text-muted-foreground"
-                  >
-                    #{t}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {tagErr && (
-              <p className="text-sm text-destructive">Chyba tagov: {tagErr}</p>
-            )}
-
-            {/* AI BUTTON */}
-            {needAI && !aiLoading && (
-              <Button variant="secondary" size="sm" onClick={handleGenerate}>
-                <Brain className="h-4 w-4 mr-2" /> Generovať AI
+            <div className="flex justify-between items-center">
+              <h4 className="flex items-center gap-2 font-semibold">
+                <Brain className="h-4 w-4 text-primary" /> AI súhrn & tagy
+              </h4>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setEditMode((v) => !v)}
+                disabled={loading}
+                title={editMode ? "Zrušiť úpravy" : "Upraviť AI výstupy"}
+              >
+                <Edit2 className="h-4 w-4" />
               </Button>
-            )}
-            {aiLoading && (
-              <p className="text-sm flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Generujem…
-              </p>
-            )}
+            </div>
 
+            {/* TAGS */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              {(editMode ? draftTags : tags).map((t) => (
+                <Badge
+                  key={t}
+                  variant={editMode ? "secondary" : "outline"}
+                  className="flex items-center gap-1"
+                >
+                  #{t}
+                  {editMode && (
+                    <X
+                      className="h-3 w-3 cursor-pointer"
+                      onClick={() =>
+                        setDraftTags((arr) => arr.filter((x) => x !== t))
+                      }
+                    />
+                  )}
+                </Badge>
+              ))}
+              {editMode && (
+                <input
+                  type="text"
+                  placeholder="Pridať tag"
+                  className="border px-1 text-xs"
+                  onKeyDown={(e) => {
+                    const v = e.currentTarget.value.trim()
+                    if (e.key === "Enter" && v && !draftTags.includes(v)) {
+                      setDraftTags((arr) => [...arr, v])
+                      e.currentTarget.value = ""
+                    }
+                  }}
+                />
+              )}
+            </div>
+            {tagErr && <p className="text-sm text-destructive">Chyba tagov: {tagErr}</p>}
+
+            {/* SUMMARY */}
+            {editMode ? (
+              <Textarea
+                value={draftSummary}
+                onChange={(e) => setDraftSummary(e.target.value)}
+                rows={6}
+                className="w-full"
+              />
+            ) : (
+              summary && (
+                <div className="text-sm space-y-2">
+                  {summary
+                    .split("\n")
+                    .filter((l) => l.trim().startsWith("•"))
+                    .map((l, i) => (
+                      <div key={i} className="flex gap-2">
+                        <span className="text-primary font-bold">•</span>
+                        <span>{l.replace(/^•\s*/, "")}</span>
+                      </div>
+                    ))}
+                  {summary.includes("Sumarizácia:") && (
+                    <div className="pt-3 border-t text-muted-foreground">
+                      <p className="whitespace-pre-wrap">
+                        {summary.split("Sumarizácia:")[1].trim()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )
+            )}
             {sumErr && <p className="text-sm text-destructive">Chyba: {sumErr}</p>}
 
-            {summary && !sumErr && (
-              <div className="text-sm space-y-2">
-                {summary
-                  .split("\n")
-                  .filter((l) => l.trim().startsWith("•"))
-                  .map((l, i) => (
-                    <div key={i} className="flex gap-2">
-                      <span className="text-primary font-bold">•</span>
-                      <span>{l.replace(/^•\s*/, "")}</span>
-                    </div>
-                  ))}
-
-                {summary.includes("Sumarizácia:") && (
-                  <div className="pt-3 border-t text-muted-foreground">
-                    <h5 className="font-semibold mb-1">Sumarizácia:</h5>
-                    <p className="whitespace-pre-wrap">
-                      {summary.split("Sumarizácia:")[1].trim()}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!summary && !aiLoading && !sumErr && (
-              <p className="text-sm text-muted-foreground italic">
-                Súhrn zatiaľ nebol vygenerovaný.
-              </p>
-            )}
+            {/* ACTION BUTTONS */}
+            <div className="flex gap-2 mt-2">
+              {needAI && !loading && !editMode && (
+                <Button variant="secondary" size="sm" onClick={handleGenerate}>
+                  <Brain className="h-4 w-4 mr-2" /> Generovať AI
+                </Button>
+              )}
+              {loading && (
+                <p className="text-sm flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Generujem…
+                </p>
+              )}
+              {editMode && (
+                <Button variant="default" size="sm" onClick={handleSaveEdits}>
+                  <Check className="h-4 w-4 mr-1" /> Uložiť zmeny
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>

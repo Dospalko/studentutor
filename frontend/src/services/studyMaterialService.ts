@@ -35,7 +35,7 @@ export interface MaterialSummaryResponse {
   word_count?: number | null;
 }
 
-/* ---------------- Helper ------------------------------------------------ */
+/* ---------------- Helper -a----------------------------------------------- */
 async function fetchJson<T>(
   url: string,
   token: string,

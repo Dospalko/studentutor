@@ -153,7 +153,7 @@ function DashboardContent() {
               Vitaj späť, <span className="text-primary">{user.full_name?.split(" ")[0] || user.email}!</span>
             </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl">
-              Organizuj si štúdium, sleduj svoj pokrok a dosahuj svoje ciele efektívnejšie s pomocou AI.
+              Organizuj si štúdium, sleduj svoj pokrok a dosahuj svoje ciele efektívnejšie s Vedom.io
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Dialog open={isAddSubjectDialogOpen} onOpenChange={setIsAddSubjectDialogOpen}>

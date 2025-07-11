@@ -23,9 +23,8 @@ import {
 } from "lucide-react";
 import { TopicStatus } from '@/types/study';
 
-// ---- NOVÝ IMPORT PRE ACHIEVEMENTY ----
+
 import { useAchievementNotifier } from '@/hooks/useAchievementNotifier'; 
-// ------------------------------------
 
 function DashboardContent() {
   const authContext = useContext(AuthContext);
@@ -185,7 +184,7 @@ function DashboardContent() {
     </div>
   );
 
-  const renderSubjectGrid = () => ( /* ... (kód renderSubjectGrid zostáva rovnaký) ... */ 
+  const renderSubjectGrid = () => ( 
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {subjects.map((subject, index) => {
         const progress = calculateSubjectProgress(subject)
@@ -200,10 +199,10 @@ function DashboardContent() {
       })}
     </div>
   );
-  const renderLoadingState = () => ( /* ... (kód renderLoadingState zostáva rovnaký) ... */ 
+  const renderLoadingState = () => ( 
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{[1, 2, 3].map((i) => (<Card key={i} className="animate-pulse"><CardHeader><div className="h-6 w-3/4 bg-muted rounded"></div><div className="h-4 w-full bg-muted rounded mt-2"></div></CardHeader><CardContent className="space-y-3"><div className="h-4 w-full bg-muted rounded"></div><div className="h-4 w-5/6 bg-muted rounded"></div><div className="h-8 w-1/2 bg-muted rounded mt-2"></div></CardContent><CardFooter><div className="h-10 w-full bg-muted rounded"></div></CardFooter></Card>))}</div>
   );
-  const renderEmptyState = () => ( /* ... (kód renderEmptyState zostáva rovnaký) ... */ 
+  const renderEmptyState = () => (
     <div className="text-center py-20 border-2 border-dashed border-border rounded-xl bg-muted/20"><div className="max-w-md mx-auto"><div className="mb-6 relative"><div className="w-24 h-24 mx-auto bg-primary/10 rounded-full flex items-center justify-center"><BookOpenCheck className="w-12 h-12 text-primary" /></div><div className="absolute -top-2 -right-2 w-8 h-8 bg-secondary/20 rounded-full flex items-center justify-center"><Sparkles className="w-4 h-4 text-secondary" /></div></div><h2 className="text-2xl font-bold mb-3">Začni svoju študijnú cestu!</h2><p className="text-muted-foreground mb-8 leading-relaxed">Zatiaľ nemáš pridané žiadne predmety. Pridaj svoj prvý predmet a začni organizovať svoje štúdium s pomocou AI.</p><Dialog open={isAddSubjectDialogOpen} onOpenChange={setIsAddSubjectDialogOpen}><DialogTrigger asChild><Button size="lg" className="group"><PlusCircle className="mr-2 h-5 w-5 transition-transform group-hover:rotate-90" />Pridať Prvý Predmet</Button></DialogTrigger><DialogContent className="sm:max-w-[480px]"><DialogHeader><DialogTitle className="text-xl">Pridať Nový Predmet</DialogTitle><DialogDescription>Zadaj názov a voliteľný popis pre tvoj nový študijný predmet.</DialogDescription></DialogHeader><form onSubmit={handleCreateSubject} className="space-y-4 pt-2"><div className="space-y-1.5"><Label htmlFor="newSubjectNameDialog">Názov predmetu <span className="text-destructive">*</span></Label><Input id="newSubjectNameDialog" value={newSubjectName} onChange={(e) => setNewSubjectName(e.target.value)} required placeholder="Napr. Kvantová Fyzika"/></div><div className="space-y-1.5"><Label htmlFor="newSubjectDescriptionDialog">Stručný popis</Label><Textarea id="newSubjectDescriptionDialog" value={newSubjectDescription} onChange={(e) => setNewSubjectDescription(e.target.value)} placeholder="Čo tento predmet zahŕňa? (max. 2-3 vety)" rows={3}/></div>{error && isAddSubjectDialogOpen && <p className="text-sm text-destructive">{error}</p>}<DialogFooter><DialogClose asChild><Button type="button" variant="outline" onClick={() => {setNewSubjectName(""); setNewSubjectDescription(""); setError(null);}}>Zrušiť</Button></DialogClose><Button type="submit" disabled={isSubmitting || !newSubjectName.trim()}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Pridať predmet</Button></DialogFooter></form></DialogContent></Dialog></div></div>
   );
 

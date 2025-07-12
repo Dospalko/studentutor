@@ -16,7 +16,7 @@ import UserSubjectsSummary from '@/components/profile/UserSubjectsSummary';
 import UserAchievements from '@/components/profile/UserAchievements';
 import UserActions from '@/components/profile/UserActions';
 import EditProfileDialog from '@/components/profile/EditProfileDialog'; // NOVÝ IMPORT
-
+import UserStats from '@/components/profile/UserStats';
 function UserProfilePageContent() {
   const authContext = useContext(AuthContext);
   const router = useRouter();
@@ -90,6 +90,8 @@ function UserProfilePageContent() {
             onLogout={handleLogout} 
             onOpenEditProfile={() => setIsEditProfileDialogOpen(true)}
           />
+          <Separator />
+          <UserStats/>
         </CardContent>
       </Card>
 

@@ -63,36 +63,3 @@ def read_user_by_id(
     return db_user
 
 
-@router.get("/stats", summary="Moje štatistiky")
-def get_my_stats(
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user),
-):
-    # Celkový počet materiálov
-    total_materials = db.query(StudyMaterial).filter(StudyMaterial.owner_id == current_user.id).count()
-
-    # Koľko materiálov má už AI súhrn?
-    total_summaries = db.query(StudyMaterial).filter(
-        StudyMaterial.owner_id == current_user.id,
-        StudyMaterial.ai_summary.isnot(None)
-    ).count()
-
-    # Koľko materiálov má už tagy?
-    total_tagged = db.query(StudyMaterial).filter(
-        StudyMaterial.owner_id == current_user.id,
-        StudyMaterial.tags != "[]"
-    ).count()
-
-    # Objem textu (slová) zo všetkých extrahovaných textov
-    texts = db.query(StudyMaterial.extracted_text).filter(
-        StudyMaterial.owner_id == current_user.id,
-        StudyMaterial.extracted_text.isnot(None)
-    ).all()
-    total_words = sum(len(t[0].split()) for t in texts if t[0])
-
-    return {
-        "total_materials": total_materials,
-        "total_summaries": total_summaries,
-        "total_tagged": total_tagged,
-        "total_words": total_words,
-    }

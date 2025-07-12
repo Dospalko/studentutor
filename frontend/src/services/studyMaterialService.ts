@@ -35,6 +35,13 @@ export interface MaterialSummaryResponse {
   word_count?: number | null;
 }
 
+
+export interface UserStats {
+  total_materials: number;
+  total_summaries: number;
+  total_tagged: number;
+  total_words: number;
+}
 /* ---------------- Helper -a----------------------------------------------- */
 async function fetchJson<T>(
   url: string,
@@ -181,12 +188,6 @@ export const generateMaterialTags = (id: number, token: string) =>
 
     
 
-export interface UserStats {
-  total_materials: number;
-  total_summaries: number;
-  total_tagged: number;
-  total_words: number;
-}
 
 export const fetchUserStats = (token: string): Promise<UserStats> =>
   fetchJson<UserStats>("/users/me/stats", token);

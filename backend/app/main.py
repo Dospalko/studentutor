@@ -14,6 +14,8 @@ from app.routers import topics
 from app.routers import study_plans
 from app.routers import study_materials
 from app.routers import achievements
+from app.routers import user_stats
+
 # Zavolaj init_db na začiatku, aby sa vytvorili tabuľky (ak neexistujú)
 # Toto sa vykoná len raz pri štarte aplikácie.
 try:
@@ -71,3 +73,5 @@ app.include_router(study_plans.router) # Prefix a tagy sú definované v study_p
 app.include_router(study_materials.router)        # Pre cesty začínajúce /subjects/{subject_id}/materials
 app.include_router(study_materials.material_router) # Pre cesty začínajúce /materials
 app.include_router(achievements.router)
+
+app.include_router(user_stats.router)

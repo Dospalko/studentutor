@@ -1,4 +1,3 @@
-// frontend/src/components/profile/UserStats.tsx
 "use client";
 
 import { useEffect, useState, useContext } from "react";
@@ -43,7 +42,12 @@ export default function UserStats() {
   const {
     materials,
     subjects,
-    study_blocks: blocks,
+    study_blocks: blocks = {
+      total: 0,
+      completed: 0,
+      skipped: 0,
+      minutes_scheduled: 0,
+    },
     achievements_unlocked: achievements,
   } = stats;
 
@@ -69,7 +73,7 @@ export default function UserStats() {
         <div>
           <p className="text-sm text-muted-foreground">Slová</p>
           <p className="text-xl font-bold">
-            {materials.words_extracted.toLocaleString()}
+            {(materials.words_extracted || 0).toLocaleString()}
           </p>
         </div>
 
@@ -103,7 +107,7 @@ export default function UserStats() {
         <div>
           <p className="text-sm text-muted-foreground">Minúty</p>
           <p className="text-xl font-bold">
-            {blocks.minutes_scheduled.toLocaleString()}
+            {(blocks.minutes_scheduled || 0).toLocaleString()}
           </p>
         </div>
 

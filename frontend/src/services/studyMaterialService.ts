@@ -1,4 +1,3 @@
-// frontend/src/services/studyMaterialService.ts
 import { MaterialTypeEnum } from "@/types/study";
 
 const API_BASE_URL =
@@ -18,7 +17,7 @@ export interface StudyMaterial {
   owner_id: number;
   extracted_text?: string | null;
   tags?: string[];
-  summary?: string | null
+  summary?: string | null;
 }
 
 export interface StudyMaterialMetadata {
@@ -35,8 +34,6 @@ export interface MaterialSummaryResponse {
   word_count?: number | null;
 }
 
-
-// example hook
 export interface UserStats {
   materials: {
     total: number;
@@ -58,14 +55,12 @@ export interface UserStats {
   achievements_unlocked: number;
 }
 
-
-/* ---------------- Helper -a----------------------------------------------- */
+/* ---------------- Helper ------------------------------------------------ */
 async function fetchJson<T>(
   url: string,
   token: string,
   init: RequestInit = {},
 ): Promise<T> {
-  /* 🔧  MERGE – zachováme hlavičky z init.headers */
   const mergedHeaders: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     ...(init.headers as Record<string, string> | undefined),
@@ -110,13 +105,12 @@ export const getStudyMaterialsForSubject = (
   const query =
     tags && tags.length > 0
       ? `?tags=${tags.map(t => encodeURIComponent(`#${t}`)).join(",")}`
-      : ""
+      : "";
   return fetchJson<StudyMaterial[]>(
     `/subjects/${subjectId}/materials/${query}`,
     token
-  )
-}
-
+  );
+};
 
 export const deleteStudyMaterial = (id: number, token: string) =>
   fetchJson<StudyMaterial>(`/materials/${id}`, token, { method: "DELETE" });
@@ -178,33 +172,29 @@ export const generateMaterialTags = (id: number, token: string) =>
     { method: "POST" }
   );
 
-  
+/* ---------------- Patch material --------------------------------------- */
+export interface PatchMaterialPayload {
+  tags?: string[];
+  ai_summary?: string;
+}
 
+export const patchMaterial = (
+  id: number,
+  payload: PatchMaterialPayload,
+  token: string
+): Promise<StudyMaterial> =>
+  fetchJson<StudyMaterial>(
+    `/materials/${id}`,
+    token,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
 
-  export interface PatchMaterialPayload {
-    tags?: string[];
-    ai_summary?: string;
-  }
-  
-  export const patchMaterial = (
-    id: number,
-    payload: PatchMaterialPayload,
-    token: string
-  ): Promise<StudyMaterial> =>
-    fetchJson<StudyMaterial>(
-      `/materials/${id}`,
-      token,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    
-
-
+/* ---------------- User stats ------------------------------------------- */
 export const fetchUserStats = (token: string): Promise<UserStats> =>
   fetchJson<UserStats>("/users/me/stats", token);

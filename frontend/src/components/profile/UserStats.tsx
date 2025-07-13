@@ -1,10 +1,10 @@
+// frontend/src/components/profile/UserStats.tsx
 "use client";
 
 import { useEffect, useState, useContext } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { fetchUserStats } from "@/services/studyMaterialService";
-import type { UserStats } from "@/services/studyMaterialService";
+import { fetchUserStats, type UserStats } from "@/services/userService";
 import { AuthContext } from "@/context/AuthContext";
 
 export default function UserStats() {
@@ -16,7 +16,7 @@ export default function UserStats() {
   useEffect(() => {
     if (!token) return;
     fetchUserStats(token)
-      .then(setStats)
+      .then((data) => setStats(data))
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, [token]);
@@ -39,29 +39,78 @@ export default function UserStats() {
       </Card>
     );
   }
+
+  const {
+    materials,
+    subjects,
+    study_blocks: blocks,
+    achievements_unlocked: achievements,
+  } = stats;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Moje Štatistiky</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+      <CardContent className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 text-center">
+        {/* Materiály */}
         <div>
           <p className="text-sm text-muted-foreground">Materiály</p>
-          <p className="text-xl font-bold">{stats.materials.total}</p>
+          <p className="text-xl font-bold">{materials.total}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Súhrny</p>
-          <p className="text-xl font-bold">{stats.total_summaries}</p>
+          <p className="text-xl font-bold">{materials.summaries}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Tagované</p>
-          <p className="text-xl font-bold">{stats.total_tagged}</p>
+          <p className="text-xl font-bold">{materials.tagged}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Slová</p>
           <p className="text-xl font-bold">
-            {stats.total_words.toLocaleString()}
+            {materials.words_extracted.toLocaleString()}
           </p>
+        </div>
+
+        {/* Predmety & témy */}
+        <div>
+          <p className="text-sm text-muted-foreground">Predmety</p>
+          <p className="text-xl font-bold">{subjects.total}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Témy</p>
+          <p className="text-xl font-bold">{subjects.topics}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Témy dokončené</p>
+          <p className="text-xl font-bold">{subjects.topics_completed}</p>
+        </div>
+
+        {/* Študijné bloky */}
+        <div>
+          <p className="text-sm text-muted-foreground">Bloky</p>
+          <p className="text-xl font-bold">{blocks.total}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Dokončené</p>
+          <p className="text-xl font-bold">{blocks.completed}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Preskočené</p>
+          <p className="text-xl font-bold">{blocks.skipped}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Minúty</p>
+          <p className="text-xl font-bold">
+            {blocks.minutes_scheduled.toLocaleString()}
+          </p>
+        </div>
+
+        {/* Achievementy */}
+        <div>
+          <p className="text-sm text-muted-foreground">Achievementy</p>
+          <p className="text-xl font-bold">{achievements}</p>
         </div>
       </CardContent>
     </Card>

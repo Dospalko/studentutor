@@ -4,7 +4,7 @@
 import { useEffect, useState, useContext } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { fetchUserStats, type UserStats } from "@/services/userService";
+import { fetchUserStats, type UserStats } from "@/services/studyMaterialService";
 import { AuthContext } from "@/context/AuthContext";
 
 export default function UserStats() {

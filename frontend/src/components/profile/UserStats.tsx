@@ -47,7 +47,7 @@ export default function UserStats() {
       <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
         <div>
           <p className="text-sm text-muted-foreground">Materiály</p>
-          <p className="text-xl font-bold">{stats.total_materials}</p>
+          <p className="text-xl font-bold">{stats.materials.total}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Súhrny</p>

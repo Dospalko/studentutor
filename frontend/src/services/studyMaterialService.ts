@@ -36,12 +36,29 @@ export interface MaterialSummaryResponse {
 }
 
 
+// example hook
 export interface UserStats {
-  total_materials: number;
-  total_summaries: number;
-  total_tagged: number;
-  total_words: number;
+  materials: {
+    total: number;
+    summaries: number;
+    tagged: number;
+    words_extracted: number;
+  };
+  subjects: {
+    total: number;
+    topics: number;
+    topics_completed: number;
+  };
+  study_blocks: {
+    total: number;
+    completed: number;
+    skipped: number;
+    minutes_scheduled: number;
+  };
+  achievements_unlocked: number;
 }
+
+
 /* ---------------- Helper -a----------------------------------------------- */
 async function fetchJson<T>(
   url: string,

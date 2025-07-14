@@ -113,13 +113,7 @@ export function SubjectCard({ subject, onDelete, index }: SubjectCardProps) {
           )}
         </div>
 
-        {/* Completion badge */}
-        {isCompleted && (
-          <Badge className="w-full justify-center bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white py-2">
-            <Target className="mr-2 h-4 w-4" />
-            Predmet dokončený! 🎉
-          </Badge>
-        )}
+      
       </CardContent>
 
       <CardFooter className="pt-4 relative z-10">

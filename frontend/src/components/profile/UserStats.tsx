@@ -1,11 +1,19 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState, useContext } from "react"
+
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
 import {
   Loader2,
   FileText,
@@ -21,28 +29,26 @@ import {
   Award,
   TrendingUp,
   Target,
+  BarChart3,
 } from "lucide-react"
+
 import { fetchUserStats } from "@/services/studyMaterialService"
 import { AuthContext } from "@/context/AuthContext"
+import { StatsCharts } from "./StatsCharts"
+/* ─────────────────────── pomocné mini-komponenty ─────────────────────── */
 
-/* ───────────────────────────────────────── helpers ──────────────────────────────────────── */
-
-const AnimatedCounter = ({ value, duration = 1000 }: { value: number; duration?: number }) => {
+const AnimatedCounter = ({ value, duration = 800 }: { value: number; duration?: number }) => {
   const [count, setCount] = useState(0)
-
   useEffect(() => {
-    let startTime: number
-    const animate = (currentTime: number) => {
-      if (!startTime) startTime = currentTime
-      const progress = Math.min((currentTime - startTime) / duration, 1)
-      setCount(Math.floor(progress * value))
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      }
+    let start: number
+    const step = (ts: number) => {
+      if (!start) start = ts
+      const p = Math.min((ts - start) / duration, 1)
+      setCount(Math.floor(p * value))
+      if (p < 1) requestAnimationFrame(step)
     }
-    requestAnimationFrame(animate)
+    requestAnimationFrame(step)
   }, [value, duration])
-
   return <span>{count.toLocaleString()}</span>
 }
 
@@ -64,14 +70,16 @@ const StatCard = ({
   delay?: number
 }) => (
   <div
-    className={`group relative overflow-hidden rounded-xl border bg-gradient-to-br ${gradient} p-4 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105`}
+    className={`group relative overflow-hidden rounded-xl border bg-gradient-to-br ${gradient} p-4 shadow-sm transition-all duration-300 hover:scale-105`}
     style={{ animationDelay: `${delay}ms` }}
   >
-    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
     <div className="relative z-10">
       <div className="flex items-center justify-between mb-3">
         <div className="p-2 rounded-lg bg-white/10 backdrop-blur-sm">{icon}</div>
-        {progress !== undefined && <div className="text-xs text-white/70 font-medium">{Math.round(progress)}%</div>}
+        {progress !== undefined && (
+          <div className="text-xs text-white/70 font-medium">{Math.round(progress)}%</div>
+        )}
       </div>
       <div className="space-y-1">
         <div className="text-2xl font-bold text-white">
@@ -112,9 +120,9 @@ const CategorySection = ({
   </div>
 )
 
-/* ─────────────────────────────────────────────────────────────────────────────────────────── */
+/* ───────────────────────────── hlavný komponent ───────────────────────────── */
 
-interface UserStats {
+interface UserStatsApi {
   materials: {
     total: number
     summaries: number
@@ -137,26 +145,26 @@ interface UserStats {
 
 export default function UserStats() {
   const { token } = useContext(AuthContext)!
-  const [stats, setStats] = useState<UserStats | null>(null)
+  const [stats, setStats] = useState<UserStatsApi | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error,   setError]   = useState<string | null>(null)
 
-  /* fetch once on mount */
+  /* fetch once */
   useEffect(() => {
     if (!token) return
     fetchUserStats(token)
       .then(setStats)
-      .catch((e) => setError((e as Error).message))
+      .catch(e => setError((e as Error).message))
       .finally(() => setLoading(false))
   }, [token])
 
-  /* loading & error states */
+  /* --------------- stavy --------------- */
   if (loading)
     return (
       <Card className="border-primary/20">
         <CardContent className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Načítavam štatistiky...</p>
+          <p className="text-muted-foreground">Načítavam štatistiky…</p>
         </CardContent>
       </Card>
     )
@@ -165,42 +173,28 @@ export default function UserStats() {
     return (
       <Card className="border-destructive/20">
         <CardContent className="py-8 text-center">
-          <div className="text-destructive text-lg font-medium mb-2">Chyba načítania štatistík</div>
-          <p className="text-muted-foreground">{error}</p>
+          <p className="text-destructive font-medium">{error ?? "Neznáma chyba"}</p>
         </CardContent>
       </Card>
     )
 
-  /* destructure with safe defaults */
-  const {
-    materials,
-    subjects,
-    study_blocks: blocks = {
-      total: 0,
-      completed: 0,
-      skipped: 0,
-      minutes_scheduled: 0,
-    },
-    achievements_unlocked: achievements,
-  } = stats
+  /* --------------- výpočty --------------- */
+  const { materials, subjects, study_blocks: blocks, achievements_unlocked } = stats
 
-  /* minutes → hh : mm for nicer display */
-  const prettyMinutes = (min: number) => {
-    const h = Math.floor(min / 60)
-    const m = min % 60
-    return h ? `${h}h ${m}m` : `${m}m`
+  const prettyMinutes = (m: number) => {
+    const h = Math.floor(m / 60)
+    return h ? `${h}h ${m % 60}m` : `${m}m`
   }
 
-  // Calculate completion rates
-  const materialTaggedRate = materials.total > 0 ? (materials.tagged / materials.total) * 100 : 0
-  const subjectCompletionRate = subjects.topics > 0 ? (subjects.topics_completed / subjects.topics) * 100 : 0
-  const blockCompletionRate = blocks.total > 0 ? (blocks.completed / blocks.total) * 100 : 0
-
+  const materialTaggedRate   = materials.total  ? (materials.tagged      / materials.total ) * 100 : 0
+  const subjectCompletionRate= subjects.topics  ? (subjects.topics_completed / subjects.topics) * 100 : 0
+  const blockCompletionRate  = blocks.total     ? (blocks.completed      / blocks.total    ) * 100 : 0
   const totalItems = materials.total + subjects.total + blocks.total
 
+  /* --------------- UI --------------- */
   return (
     <div className="space-y-8">
-      {/* Header Card */}
+      {/* ── header + tlačidlo pre grafy ── */}
       <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-secondary/5">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -209,137 +203,108 @@ export default function UserStats() {
                 <Sparkles className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-2xl">Moje Štatistiky</CardTitle>
+                <CardTitle className="text-2xl">Moje štatistiky</CardTitle>
                 <p className="text-muted-foreground">Prehľad vášho pokroku v štúdiu</p>
               </div>
             </div>
-            <div className="text-right">
-              <Badge variant="outline" className="text-sm px-3 py-1">
-                <Target className="h-3 w-3 mr-1" />
-                {totalItems} položiek
-              </Badge>
-            </div>
+
+            {/* ===== POP-UP TLAČIDLO ===== */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm bg-primary text-white hover:bg-primary/90 transition"
+                  title="Zobraziť grafy"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Grafy
+                </button>
+              </DialogTrigger>
+
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                    Vizualizácia štatistík
+                  </DialogTitle>
+                </DialogHeader>
+
+                {/* samotné grafy */}
+                <StatsCharts data={stats} />
+              </DialogContent>
+            </Dialog>
+
+            {/* celkový badge */}
+            <Badge variant="outline" className="ml-4">
+              <Target className="h-3 w-3 mr-1" />
+              {totalItems} položiek
+            </Badge>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Materials Section */}
+      {/* ---------- materiály ---------- */}
       <CategorySection
-        title="Študijné Materiály"
+        title="Študijné materiály"
         icon={<FileText className="h-5 w-5 text-blue-600" />}
         badge={`${materials.total} celkom`}
       >
-        <StatCard
-          icon={<FileText className="h-5 w-5 text-white" />}
-          label="Celkom Materiálov"
-          value={materials.total}
-          gradient="from-blue-500 to-blue-600"
-          delay={0}
-        />
-        <StatCard
-          icon={<AlignJustify className="h-5 w-5 text-white" />}
-          label="Súhrny"
-          value={materials.summaries}
-          subtitle="Automaticky generované"
-          gradient="from-blue-600 to-indigo-600"
-          delay={100}
-        />
-        <StatCard
-          icon={<Tags className="h-5 w-5 text-white" />}
-          label="Tagované"
-          value={materials.tagged}
-          progress={materialTaggedRate}
-          gradient="from-indigo-600 to-purple-600"
-          delay={200}
-        />
-        <StatCard
-          icon={<BookOpenCheck className="h-5 w-5 text-white" />}
-          label="Extrahované Slová"
-          value={materials.words_extracted}
-          subtitle="Pre lepšie vyhľadávanie"
-          gradient="from-purple-600 to-pink-600"
-          delay={300}
-        />
+        <StatCard icon={<FileText className="h-5 w-5 text-white" />}  label="Materiály"
+                  value={materials.total} gradient="from-blue-500 to-blue-600"/>
+        <StatCard icon={<AlignJustify className="h-5 w-5 text-white" />} label="Súhrny"
+                  value={materials.summaries} subtitle="AI generované"
+                  gradient="from-blue-600 to-indigo-600" delay={100}/>
+        <StatCard icon={<Tags className="h-5 w-5 text-white" />}       label="Tagované"
+                  value={materials.tagged} progress={materialTaggedRate}
+                  gradient="from-indigo-600 to-purple-600" delay={200}/>
+        <StatCard icon={<BookOpenCheck className="h-5 w-5 text-white" />} label="Slová"
+                  value={materials.words_extracted} subtitle="extrahované"
+                  gradient="from-purple-600 to-pink-600" delay={300}/>
       </CategorySection>
 
-      {/* Subjects Section */}
+      {/* ---------- predmety ---------- */}
       <CategorySection
-        title="Predmety a Témy"
+        title="Predmety & témy"
         icon={<GraduationCap className="h-5 w-5 text-emerald-600" />}
         badge={`${subjects.topics_completed}/${subjects.topics} hotovo`}
       >
-        <StatCard
-          icon={<GraduationCap className="h-5 w-5 text-white" />}
-          label="Predmety"
-          value={subjects.total}
-          gradient="from-emerald-500 to-emerald-600"
-          delay={0}
-        />
-        <StatCard
-          icon={<Layers className="h-5 w-5 text-white" />}
-          label="Témy"
-          value={subjects.topics}
-          gradient="from-emerald-600 to-teal-600"
-          delay={100}
-        />
-        <StatCard
-          icon={<CheckCircle2 className="h-5 w-5 text-white" />}
-          label="Dokončené Témy"
-          value={subjects.topics_completed}
-          progress={subjectCompletionRate}
-          gradient="from-teal-600 to-cyan-600"
-          delay={200}
-        />
-        <StatCard
-          icon={<TrendingUp className="h-5 w-5 text-white" />}
-          label="Úspešnosť"
-          value={`${Math.round(subjectCompletionRate)}%`}
-          subtitle="Dokončených tém"
-          gradient="from-cyan-600 to-blue-600"
-          delay={300}
-        />
+        <StatCard icon={<GraduationCap className="h-5 w-5 text-white" />}
+                  label="Predmety" value={subjects.total}
+                  gradient="from-emerald-500 to-emerald-600"/>
+        <StatCard icon={<Layers className="h-5 w-5 text-white" />}
+                  label="Témy" value={subjects.topics}
+                  gradient="from-emerald-600 to-teal-600" delay={100}/>
+        <StatCard icon={<CheckCircle2 className="h-5 w-5 text-white" />}
+                  label="Dokončené" value={subjects.topics_completed}
+                  progress={subjectCompletionRate}
+                  gradient="from-teal-600 to-cyan-600" delay={200}/>
+        <StatCard icon={<TrendingUp className="h-5 w-5 text-white" />}
+                  label="Úspešnosť" value={`${Math.round(subjectCompletionRate)}%`}
+                  subtitle="dokončené témy"
+                  gradient="from-cyan-600 to-blue-600" delay={300}/>
       </CategorySection>
 
-      {/* Study Blocks Section */}
+      {/* ---------- bloky ---------- */}
       <CategorySection
-        title="Študijné Bloky"
+        title="Študijné bloky"
         icon={<Clock8 className="h-5 w-5 text-amber-600" />}
         badge={`${prettyMinutes(blocks.minutes_scheduled)} naplánované`}
       >
-        <StatCard
-          icon={<Clock8 className="h-5 w-5 text-white" />}
-          label="Celkom Blokov"
-          value={blocks.total}
-          gradient="from-amber-500 to-amber-600"
-          delay={0}
-        />
-        <StatCard
-          icon={<CheckCircle2 className="h-5 w-5 text-white" />}
-          label="Dokončené"
-          value={blocks.completed}
-          progress={blockCompletionRate}
-          gradient="from-amber-600 to-orange-600"
-          delay={100}
-        />
-        <StatCard
-          icon={<SkipForward className="h-5 w-5 text-white" />}
-          label="Preskočené"
-          value={blocks.skipped}
-          subtitle="Bloky na neskôr"
-          gradient="from-orange-600 to-red-600"
-          delay={200}
-        />
-        <StatCard
-          icon={<Clock8 className="h-5 w-5 text-white" />}
-          label="Čas Štúdia"
-          value={prettyMinutes(blocks.minutes_scheduled)}
-          subtitle="Naplánovaný čas"
-          gradient="from-red-600 to-pink-600"
-          delay={300}
-        />
+        <StatCard icon={<Clock8 className="h-5 w-5 text-white" />}
+                  label="Bloky" value={blocks.total}
+                  gradient="from-amber-500 to-amber-600"/>
+        <StatCard icon={<CheckCircle2 className="h-5 w-5 text-white" />}
+                  label="Dokončené" value={blocks.completed}
+                  progress={blockCompletionRate}
+                  gradient="from-amber-600 to-orange-600" delay={100}/>
+        <StatCard icon={<SkipForward className="h-5 w-5 text-white" />}
+                  label="Preskočené" value={blocks.skipped}
+                  gradient="from-orange-600 to-red-600" delay={200}/>
+        <StatCard icon={<Clock8 className="h-5 w-5 text-white" />}
+                  label="Čas štúdia" value={prettyMinutes(blocks.minutes_scheduled)}
+                  gradient="from-red-600 to-pink-600" delay={300}/>
       </CategorySection>
 
-      {/* Achievements Section */}
+      {/* ---------- achievementy ---------- */}
       <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
@@ -354,14 +319,13 @@ export default function UserStats() {
             </div>
             <div className="text-right">
               <div className="text-3xl font-bold text-green-700">
-                <AnimatedCounter value={achievements} />
+                <AnimatedCounter value={achievements_unlocked} />
               </div>
-              <div className="text-sm text-green-600">Odomknuté</div>
+              <div className="text-sm text-green-600">odomknuté</div>
             </div>
           </div>
         </CardContent>
       </Card>
-      
     </div>
   )
 }

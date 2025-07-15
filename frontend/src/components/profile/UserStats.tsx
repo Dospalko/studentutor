@@ -34,7 +34,7 @@ import {
 
 import { fetchUserStats } from "@/services/studyMaterialService"
 import { AuthContext } from "@/context/AuthContext"
-import { StatsCharts } from "./StatsCharts"
+import StatsCharts from "./StatsCharts"
 /* ─────────────────────── pomocné mini-komponenty ─────────────────────── */
 
 const AnimatedCounter = ({ value, duration = 800 }: { value: number; duration?: number }) => {

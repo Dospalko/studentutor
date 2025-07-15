@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookOpen, Trash2, ExternalLink, BookCopy, Clock, Star, Target, ArrowRight } from "lucide-react"
+import { BookOpen, Trash2, ExternalLink, BookCopy, Clock, Star, ArrowRight } from "lucide-react"
 import type { Subject } from "@/services/subjectService"
 import { TopicStatus } from "@/types/study"
 

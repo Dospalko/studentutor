@@ -31,3 +31,6 @@ restart-backend:
 # Reštartuj frontend (napr. po zmene env premenných)
 restart-frontend:
 	docker-compose restart frontend
+
+
+make 

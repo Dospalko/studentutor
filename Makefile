@@ -32,5 +32,3 @@ restart-backend:
 restart-frontend:
 	docker-compose restart frontend
 
-
-make 

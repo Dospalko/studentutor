@@ -49,6 +49,39 @@
 
 ```bash
 make dev
+Frontend: http://localhost:3000
 
+Backend: http://localhost:8000 (interaktívna dokumentácia /docs)
 
-commit for a day false frda
+PostgreSQL: 5432 (kontajner tutor_postgres_db)
+
+Zastavenie
+bash
+Kopírovať
+Upraviť
+make down
+Produkčné nasadenie
+Vytvorte .env.prod s premennými prostredia (DATABASE_URL, JWT_SECRET_KEY, NEXT_PUBLIC_API_URL a ďalšie).
+
+Spustite:
+
+bash
+Kopírovať
+Upraviť
+make prod
+Kontajnery sa postavia v režime bez hot-reloadu a s persistenciou dát v objemoch.
+
+Štruktúra repozitára
+bash
+Kopírovať
+Upraviť
+.
+├─ backend/        # FastAPI aplikácia
+│  ├─ app/         # moduly, routery, služby
+│  └─ Dockerfile
+├─ frontend/       # Next.js aplikácia
+│  ├─ src/
+│  └─ Dockerfile
+├─ docker-compose.yml
+├─ Makefile
+└─ README.md

@@ -66,6 +66,7 @@ const SubjectDetailPageContent = () => {
 
   const { subject } = data
   const totalTopics = subject.topics?.length || 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const completedTopics = subject.topics?.filter((t: any) => t.status === TopicStatus.COMPLETED).length || 0
   const progressPercentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0
   const isCompleted = progressPercentage === 100

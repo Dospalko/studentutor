@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 
 interface SidebarItem {
   id: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: any
   label: string
   color: string

@@ -92,11 +92,11 @@ const SubjectDetailPageContent = () => {
               <div className="h-8 w-px bg-border" />
 
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-primary via-primary to-secondary rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                <div className="w-12 h-12 bg-gradient-to-br  from-primary via-primary to-secondary rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
                   {subject.name.charAt(0)}
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">{subject.name}</h1>
+                  <h1 className="text-2xl  font-bold text-foreground">{subject.name}</h1>
                   <p className="text-muted-foreground">Študijný predmet</p>
                 </div>
               </div>
@@ -140,7 +140,7 @@ const SubjectDetailPageContent = () => {
                 Komplexný pohľad na všetky aspekty vášho štúdia, štatistiky a dosiahnuté míľniky
               </p>
             </div>
-            <div className="animate-in fade-in slide-in-from-bottom-6 duration-1000">
+            <div className="animate-in text-center fade-in slide-in-from-bottom-6 duration-1000">
               <SubjectOverview subject={subject} />
             </div>
           </div>
@@ -238,7 +238,7 @@ const SubjectDetailPageContent = () => {
       </main>
 
       {/* Progress Bar */}
-      <div className="fixed bottom-0 left-0 right-0 h-1 bg-muted/30 z-30">
+      <div className="fixed bottom-0 left-0 right-0 h-3 bg-muted/30 z-30">
         <div
           className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-all duration-700 ease-out"
           style={{ width: `${progressPercentage}%` }}

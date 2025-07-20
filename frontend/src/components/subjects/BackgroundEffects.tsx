@@ -1,6 +1,6 @@
 "use client"
 
-import { Star, Circle, Triangle } from 'lucide-react'
+import { Star, Circle } from 'lucide-react'
 
 export default function BackgroundEffects() {
   return (

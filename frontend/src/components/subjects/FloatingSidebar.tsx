@@ -95,19 +95,7 @@ export default function FloatingSidebar({ className = "" }: FloatingSidebarProps
           })}
         </div>
 
-        {/* Progress dots */}
-        <div className="mt-6 pt-4 border-t border-border/50">
-          <div className="flex flex-col gap-2">
-            {sidebarItems.map((item) => (
-              <div
-                key={`dot-${item.id}`}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  activeSection === item.id ? "bg-primary scale-125" : "bg-muted"
-                }`}
-              />
-            ))}
-          </div>
-        </div>
+    
       </div>
     </div>
   )

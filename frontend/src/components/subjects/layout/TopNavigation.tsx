@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
 interface TopNavigationProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   subject: any
   completedTopics: number
   totalTopics: number

@@ -17,14 +17,21 @@ import SectionHeader from "@/components/subjects/layout/SectionHeader"
 import ContentSection from "@/components/subjects/layout/ContentSection"
 import { BarChart3, Target, Users, Zap } from "lucide-react"
 import { TopicStatus } from "@/types/study"
-
+import { useState,useEffect } from "react"
 const SubjectDetailPageContent = () => {
   const { subjectId } = useParams<{ subjectId: string }>()
   const id = Number(subjectId)
   const { token } = useAuth()
   const data = useSubjectDetail(id, token)
 
-  if (data.loading) {
+  const [minLoading, setMinLoading] = useState(true)
+  useEffect(() => {
+    const timer = setTimeout(() => setMinLoading(false), 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // show loading while real fetch is loading OR until that 1s has elapsed
+  if (data.loading || minLoading) {
     return (
       <div>
         <BackgroundEffects />
@@ -32,6 +39,7 @@ const SubjectDetailPageContent = () => {
       </div>
     )
   }
+
 
   if (data.error || !data.subject) {
     return (

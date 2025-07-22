@@ -4,7 +4,7 @@ import { FC } from "react";
 import { Subject } from "@/services/subjectService";
 
 const SubjectOverview: FC<{ subject: Subject }> = ({ subject }) => (
-  <Card className="mb-8">
+  <Card className="bg-none">
     <CardHeader>
       <CardTitle className="text-3xl md:text-4xl font-bold">
         {subject.name}

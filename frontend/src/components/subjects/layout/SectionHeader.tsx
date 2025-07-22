@@ -20,7 +20,7 @@ export default function SectionHeader({ icon, badge, title, description, badgeCo
         <span className={`${badgeColor} font-semibold text-sm`}>{badge}</span>
       </div>
       <h2 className="text-4xl font-bold mb-4 leading-tight">
-        <span className="bg-gradient-to-r from-foreground via-primary to-secondary bg-clip-text text-transparent">
+        <span className="bg-gradient-to-r from-foreground via-primary  to-secondary bg-clip-text text-transparent">
           {title}
         </span>
       </h2>

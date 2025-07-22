@@ -44,6 +44,7 @@ const SubjectDetailPageContent = () => {
 
   const { subject } = data
   const totalTopics = subject.topics?.length || 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const completedTopics = subject.topics?.filter((t: any) => t.status === TopicStatus.COMPLETED).length || 0
   const progressPercentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0
   const isCompleted = progressPercentage === 100
@@ -73,7 +74,7 @@ const SubjectDetailPageContent = () => {
             badgeColor="text-blue-600"
           />
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl border border-white/20 shadow-2xl p-4">
+            <div className="backdrop-blur-xl text-center bg-white/10 dark:bg-black/10 rounded-3xl border border-white/20 shadow-2xl p-4">
               <SubjectOverview subject={subject} />
             </div>
           </div>

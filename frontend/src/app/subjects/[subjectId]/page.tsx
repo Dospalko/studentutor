@@ -30,7 +30,6 @@ const SubjectDetailPageContent = () => {
     return () => clearTimeout(timer)
   }, [])
 
-  // show loading while real fetch is loading OR until that 1s has elapsed
   if (data.loading || minLoading) {
     return (
       <div>

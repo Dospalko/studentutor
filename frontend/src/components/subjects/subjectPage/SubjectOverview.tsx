@@ -5,21 +5,14 @@ import { useState, useEffect, useContext } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   BookOpenCheck,
   CheckCircle2,
-  TrendingUp,
   Clock,
-  Target,
-  Calendar,
   Award,
-  BarChart3,
-  FileText,
   BookOpen,
   Timer,
   Loader2,
-  Plus,
 } from "lucide-react"
 import { getSubjects, type Subject } from "@/services/subjectService"
 import { fetchUserStats } from "@/services/studyMaterialService"
@@ -53,8 +46,8 @@ interface UserStatsApi {
 
 const SubjectOverview: FC<SubjectOverviewProps> = ({ subject }) => {
   const { token } = useContext(AuthContext)!
-  const [userStats, setUserStats] = useState<UserStatsApi | null>(null)
-  const [allSubjects, setAllSubjects] = useState<Subject[]>([])
+  const [, setUserStats] = useState<UserStatsApi | null>(null)
+  const [, setAllSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(true)
 
   // Load additional data for richer overview
@@ -84,14 +77,7 @@ const SubjectOverview: FC<SubjectOverviewProps> = ({ subject }) => {
   const progress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0
   const isCompleted = progress === 100
 
-  // Calculate study time from user stats
-  const prettyMinutes = (m: number) => {
-    const h = Math.floor(m / 60)
-    return h ? `${h}h ${m % 60}m` : `${m}m`
-  }
-
-  const studyTime = userStats ? prettyMinutes(userStats.study_blocks.minutes_scheduled) : "0m"
-  const completedBlocks = userStats?.study_blocks.completed ?? 0
+ 
 
   const stats = [
     {
@@ -128,55 +114,7 @@ const SubjectOverview: FC<SubjectOverviewProps> = ({ subject }) => {
     },
   ]
 
-  const quickActions = [
-    {
-      label: "Pridať tému",
-      icon: Plus,
-      color: "text-blue-600",
-      bgColor: "hover:bg-blue-50",
-      action: () => {
-        // Scroll to topics section or trigger topic creation
-        const topicsSection = document.getElementById("topics")
-        if (topicsSection) {
-          topicsSection.scrollIntoView({ behavior: "smooth" })
-        }
-      },
-    },
-    {
-      label: "Generovať plán",
-      icon: Calendar,
-      color: "text-purple-600",
-      bgColor: "hover:bg-purple-50",
-      action: () => {
-        const planSection = document.getElementById("plan")
-        if (planSection) {
-          planSection.scrollIntoView({ behavior: "smooth" })
-        }
-      },
-    },
-    {
-      label: "Nahrať materiál",
-      icon: FileText,
-      color: "text-amber-600",
-      bgColor: "hover:bg-amber-50",
-      action: () => {
-        const materialsSection = document.getElementById("materials")
-        if (materialsSection) {
-          materialsSection.scrollIntoView({ behavior: "smooth" })
-        }
-      },
-    },
-    {
-      label: "Zobraziť analytiku",
-      icon: BarChart3,
-      color: "text-indigo-600",
-      bgColor: "hover:bg-indigo-50",
-      action: () => {
-        // Could open analytics modal or navigate to analytics page
-        console.log("Show analytics")
-      },
-    },
-  ]
+ 
 
   if (loading) {
     return (

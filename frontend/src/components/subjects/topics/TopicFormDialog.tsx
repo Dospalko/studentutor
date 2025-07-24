@@ -16,7 +16,21 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, BookOpen, Target, TrendingUp, AlertTriangle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import {
+  Loader2,
+  BookOpen,
+  Target,
+  AlertTriangle,
+  CheckCircle2,
+  PlayCircle,
+  Circle,
+  User,
+  Sparkles,
+  Brain,
+  Heart,
+  AlertCircle,
+} from "lucide-react"
 import type { Topic, TopicCreate, TopicUpdate } from "@/services/topicService"
 import { TopicStatus, UserDifficulty } from "@/types/study"
 
@@ -102,65 +116,113 @@ export default function TopicFormDialog({
     }
   }
 
-  const getDifficultyColor = (difficulty: UserDifficulty | typeof NONE_VALUE_PLACEHOLDER) => {
+  const getDifficultyStyle = (difficulty: UserDifficulty | typeof NONE_VALUE_PLACEHOLDER) => {
     switch (difficulty) {
       case UserDifficulty.EASY:
-        return "text-green-600 dark:text-green-400"
+        return {
+          color: "text-green-600 dark:text-green-400",
+          bg: "bg-green-50 dark:bg-green-900/20",
+          border: "border-green-200",
+          icon: "🟢",
+        }
       case UserDifficulty.MEDIUM:
-        return "text-yellow-600 dark:text-yellow-400"
+        return {
+          color: "text-yellow-600 dark:text-yellow-400",
+          bg: "bg-yellow-50 dark:bg-yellow-900/20",
+          border: "border-yellow-200",
+          icon: "🟡",
+        }
       case UserDifficulty.HARD:
-        return "text-red-600 dark:text-red-400"
+        return {
+          color: "text-red-600 dark:text-red-400",
+          bg: "bg-red-50 dark:bg-red-900/20",
+          border: "border-red-200",
+          icon: "🔴",
+        }
       default:
-        return "text-muted-foreground"
+        return {
+          color: "text-muted-foreground",
+          bg: "bg-muted/20",
+          border: "border-muted",
+          icon: "⚪",
+        }
     }
   }
 
-  const getStatusColor = (status: TopicStatus) => {
+  const getStatusStyle = (status: TopicStatus) => {
     switch (status) {
       case TopicStatus.COMPLETED:
-        return "text-green-600 dark:text-green-400"
+        return {
+          color: "text-green-600 dark:text-green-400",
+          bg: "bg-green-50 dark:bg-green-900/20",
+          border: "border-green-200",
+          icon: CheckCircle2,
+        }
       case TopicStatus.IN_PROGRESS:
-        return "text-blue-600 dark:text-blue-400"
+        return {
+          color: "text-blue-600 dark:text-blue-400",
+          bg: "bg-blue-50 dark:bg-blue-900/20",
+          border: "border-blue-200",
+          icon: PlayCircle,
+        }
       default:
-        return "text-muted-foreground"
+        return {
+          color: "text-muted-foreground",
+          bg: "bg-muted/20",
+          border: "border-muted",
+          icon: Circle,
+        }
     }
   }
+
+  const difficultyStyle = getDifficultyStyle(topicUserDifficulty)
+  const statusStyle = getStatusStyle(topicStatus)
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <BookOpen className="h-5 w-5" />
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        {/* Enhanced Header */}
+        <DialogHeader className="space-y-4 pb-6 border-b border-border/50">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 shadow-lg">
+              <BookOpen className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <DialogTitle className="text-xl font-semibold">
+            <div className="flex-1">
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 {editingTopic ? "Upraviť tému" : "Pridať novú tému"}
               </DialogTitle>
               {subjectName && (
-                <DialogDescription className="text-sm text-muted-foreground">
+                <DialogDescription className="text-base text-muted-foreground mt-1">
                   {editingTopic
                     ? `Upravujete tému "${editingTopic.name}"`
                     : `Pridávate novú tému k predmetu "${subjectName}"`}
                 </DialogDescription>
               )}
             </div>
+            {editingTopic && (
+              <Badge variant="outline" className="gap-2">
+                <Sparkles className="h-3 w-3" />
+                Úprava
+              </Badge>
+            )}
           </div>
         </DialogHeader>
 
+        {/* Error Alert */}
         {formError && (
-          <Card className="border-destructive/20 bg-destructive/5">
-            <CardContent className="p-4 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              <p className="text-sm text-destructive">{formError}</p>
+          <Card className="border-2 border-destructive/20 bg-destructive/5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0" />
+              <p className="text-sm text-destructive font-medium">{formError}</p>
             </CardContent>
           </Card>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="topicNameDialog" className="text-sm font-medium">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Topic Name */}
+          <div className="space-y-3">
+            <Label htmlFor="topicNameDialog" className="text-base font-semibold flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" />
               Názov témy <span className="text-destructive">*</span>
             </Label>
             <Input
@@ -169,36 +231,46 @@ export default function TopicFormDialog({
               onChange={(e) => setTopicName(e.target.value)}
               required
               placeholder="Napr. Limity a spojitosť funkcií"
-              className="h-11"
+              className="h-12 text-base border-2 focus:border-primary/50"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="topicStatusDialog" className="text-sm font-medium flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                Status
+          {/* Status and Difficulty Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Status */}
+            <div className="space-y-3">
+              <Label htmlFor="topicStatusDialog" className="text-base font-semibold flex items-center gap-2">
+                <statusStyle.icon className="h-4 w-4 text-primary" />
+                Status témy
               </Label>
               <Select value={topicStatus} onValueChange={(value) => setTopicStatus(value as TopicStatus)}>
-                <SelectTrigger id="topicStatusDialog" className="h-11">
+                <SelectTrigger
+                  id="topicStatusDialog"
+                  className={`h-12 border-2 ${statusStyle.border} ${statusStyle.bg}`}
+                >
                   <SelectValue placeholder="Vyberte status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.values(TopicStatus).map((sVal) => (
-                    <SelectItem key={sVal} value={sVal}>
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${getStatusColor(sVal)}`}></span>
-                        {formatEnumValue(sVal)}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {Object.values(TopicStatus).map((sVal) => {
+                    const style = getStatusStyle(sVal)
+                    const StatusIcon = style.icon
+                    return (
+                      <SelectItem key={sVal} value={sVal}>
+                        <div className="flex items-center gap-3">
+                          <StatusIcon className={`h-4 w-4 ${style.color}`} />
+                          <span className="font-medium">{formatEnumValue(sVal)}</span>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="topicUserDifficultyDialog" className="text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
+            {/* Difficulty */}
+            <div className="space-y-3">
+              <Label htmlFor="topicUserDifficultyDialog" className="text-base font-semibold flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" />
                 Vnímaná náročnosť
               </Label>
               <Select
@@ -207,66 +279,108 @@ export default function TopicFormDialog({
                   setTopicUserDifficulty(value as UserDifficulty | typeof NONE_VALUE_PLACEHOLDER)
                 }
               >
-                <SelectTrigger id="topicUserDifficultyDialog" className="h-11">
+                <SelectTrigger
+                  id="topicUserDifficultyDialog"
+                  className={`h-12 border-2 ${difficultyStyle.border} ${difficultyStyle.bg}`}
+                >
                   <SelectValue placeholder="Vyberte náročnosť" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE_PLACEHOLDER}>
-                    <span className="text-muted-foreground">Žiadna</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">⚪</span>
+                      <span className="text-muted-foreground">Žiadna</span>
+                    </div>
                   </SelectItem>
-                  {Object.values(UserDifficulty).map((dVal) => (
-                    <SelectItem key={dVal} value={dVal}>
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${getDifficultyColor(dVal)}`}></span>
-                        {formatEnumValue(dVal)}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {Object.values(UserDifficulty).map((dVal) => {
+                    const style = getDifficultyStyle(dVal)
+                    return (
+                      <SelectItem key={dVal} value={dVal}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{style.icon}</span>
+                          <span className={`font-medium ${style.color}`}>{formatEnumValue(dVal)}</span>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label
-                htmlFor="topicUserStrengthsDialog"
-                className="text-sm font-medium text-green-700 dark:text-green-400"
-              >
-                Silné stránky
-              </Label>
-              <Textarea
-                id="topicUserStrengthsDialog"
-                value={topicUserStrengths}
-                onChange={(e) => setTopicUserStrengths(e.target.value)}
-                placeholder="Čo ti v tejto téme ide dobre?"
-                rows={3}
-                className="resize-none"
-              />
+          {/* Strengths and Weaknesses */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Vaše hodnotenie</h3>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="topicUserWeaknessesDialog" className="text-sm font-medium text-red-700 dark:text-red-400">
-                Slabé stránky
-              </Label>
-              <Textarea
-                id="topicUserWeaknessesDialog"
-                value={topicUserWeaknesses}
-                onChange={(e) => setTopicUserWeaknesses(e.target.value)}
-                placeholder="S čím máš v tejto téme problémy?"
-                rows={3}
-                className="resize-none"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Strengths */}
+              <div className="space-y-3">
+                <Label
+                  htmlFor="topicUserStrengthsDialog"
+                  className="text-base font-semibold flex items-center gap-2 text-green-700 dark:text-green-400"
+                >
+                  <Heart className="h-4 w-4" />
+                  Silné stránky
+                </Label>
+                <Card className="border-2 border-green-200 bg-green-50/50 dark:bg-green-900/10">
+                  <CardContent className="p-4">
+                    <Textarea
+                      id="topicUserStrengthsDialog"
+                      value={topicUserStrengths}
+                      onChange={(e) => setTopicUserStrengths(e.target.value)}
+                      placeholder="Čo ti v tejto téme ide dobre? Aké máš skúsenosti?"
+                      rows={4}
+                      className="resize-none border-0 bg-transparent focus-visible:ring-0 text-base"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Weaknesses */}
+              <div className="space-y-3">
+                <Label
+                  htmlFor="topicUserWeaknessesDialog"
+                  className="text-base font-semibold flex items-center gap-2 text-red-700 dark:text-red-400"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  Slabé stránky
+                </Label>
+                <Card className="border-2 border-red-200 bg-red-50/50 dark:bg-red-900/10">
+                  <CardContent className="p-4">
+                    <Textarea
+                      id="topicUserWeaknessesDialog"
+                      value={topicUserWeaknesses}
+                      onChange={(e) => setTopicUserWeaknesses(e.target.value)}
+                      placeholder="S čím máš v tejto téme problémy? Čo ti robí ťažkosti?"
+                      rows={4}
+                      className="resize-none border-0 bg-transparent focus-visible:ring-0 text-base"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-6">
+          {/* Enhanced Footer */}
+          <DialogFooter className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-border/50">
             <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isSubmitting} className="w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto h-12 text-base bg-transparent"
+              >
                 Zrušiť
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={isSubmitting || !topicName.trim()} className="w-full sm:w-auto">
+            <Button
+              type="submit"
+              disabled={isSubmitting || !topicName.trim()}
+              className="w-full sm:w-auto h-12 text-base bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-lg"
+            >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingTopic ? "Uložiť zmeny" : "Vytvoriť tému"}
             </Button>

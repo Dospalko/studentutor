@@ -95,7 +95,6 @@ const SubjectOverview: FC<SubjectOverviewProps> = ({ subject }) => {
   }
 
   const studyTime = userStats ? prettyMinutes(userStats.study_blocks.minutes_scheduled) : "0m"
-  const totalStudyBlocks = userStats?.study_blocks.total ?? 0
   const completedBlocks = userStats?.study_blocks.completed ?? 0
 
   const stats = [
@@ -488,37 +487,6 @@ const SubjectOverview: FC<SubjectOverviewProps> = ({ subject }) => {
         </CardContent>
       </Card>
 
-      {/* Global Stats Summary */}
-      {userStats && (
-        <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-purple-600" />
-              Celkové štatistiky
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 rounded-lg bg-white/50 dark:bg-black/20">
-                <div className="text-2xl font-bold text-purple-600">{userStats.subjects.total}</div>
-                <div className="text-sm text-purple-600/80">Predmetov</div>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-white/50 dark:bg-black/20">
-                <div className="text-2xl font-bold text-blue-600">{userStats.materials.total}</div>
-                <div className="text-sm text-blue-600/80">Materiálov</div>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-white/50 dark:bg-black/20">
-                <div className="text-2xl font-bold text-green-600">{userStats.subjects.topics_completed}</div>
-                <div className="text-sm text-green-600/80">Dokončených tém</div>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-white/50 dark:bg-black/20">
-                <div className="text-2xl font-bold text-amber-600">{userStats.achievements_unlocked}</div>
-                <div className="text-sm text-amber-600/80">Achievementov</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

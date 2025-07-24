@@ -10,7 +10,13 @@ interface SectionHeaderProps {
   badgeColor: string
 }
 
-export default function SectionHeader({ icon, badge, title, description, badgeColor }: SectionHeaderProps) {
+export default function SectionHeader({
+  icon,
+  badge,
+  title,
+  description,
+  badgeColor,
+}: SectionHeaderProps) {
   return (
     <div className="text-center mb-12">
       <div
@@ -20,11 +26,13 @@ export default function SectionHeader({ icon, badge, title, description, badgeCo
         <span className={`${badgeColor} font-semibold text-sm`}>{badge}</span>
       </div>
       <h2 className="text-4xl font-bold mb-4 leading-tight">
-        <span className="bg-gradient-to-r from-foreground via-primary  to-secondary bg-clip-text text-transparent">
+        <span className="bg-gradient-to-r from-foreground via-primary to-secondary bg-clip-text text-transparent">
           {title}
         </span>
       </h2>
-      <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">{description}</p>
+      <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+        {description}
+      </p>
     </div>
   )
 }

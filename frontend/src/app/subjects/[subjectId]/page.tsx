@@ -81,7 +81,7 @@ const SubjectDetailPageContent = () => {
             badgeColor="text-blue-600"
           />
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="backdrop-blur-xl text-center bg-white/10 dark:bg-black/10 rounded-3xl border border-white/20 shadow-2xl p-4">
+            <div className=" text-center  dark:bg-black/10 rounded-3xl  p-4">
               <SubjectOverview subject={subject} />
             </div>
           </div>

@@ -24,6 +24,13 @@ import { AuthContext } from "@/context/AuthContext"
 
 export default function HomePage() {
   const authContext = useContext(AuthContext)
+  // const router = useRouter()
+
+  // useEffect(() => {
+  //   if (authContext?.user && router && typeof window !== "undefined" && window.location.pathname !== "/dashboard") {
+  //     router.push("/dashboard")
+  //   }
+  // }, [authContext?.user, router])
 
   if (
     authContext?.isLoading ||

@@ -1,34 +1,34 @@
-"use client"
+"use client";
 
-import { useParams } from "next/navigation"
-import ProtectedRoute from "@/components/ProtectedRoute"
-import { useSubjectDetail } from "@/hooks/useSubjectDetail"
-import { useAuth } from "@/hooks/useAuth"
-import SubjectOverview from "@/components/subjects/subjectPage/SubjectOverview"
-import TopicsSection from "@/components/subjects/topics/TopicsSection"
-import StudyPlanSection from "@/components/subjects/subjectPage/StudyPlanSection"
-import MaterialsSection from "@/components/subjects/materials/MaterialsSection"
-import FloatingSidebar from "@/components/subjects/layout/FloatingSidebar"
-import BackgroundEffects from "@/components/subjects/layout/BackgroundEffects"
-import LoadingScreen from "@/components/subjects/layout/LoadingScreen"
-import ErrorScreen from "@/components/subjects/layout/ErrorScreen"
-import TopNavigation from "@/components/subjects/layout/TopNavigation"
-import SectionHeader from "@/components/subjects/layout/SectionHeader"
-import ContentSection from "@/components/subjects/layout/ContentSection"
-import { BarChart3, Target, Users, Zap } from "lucide-react"
-import { TopicStatus } from "@/types/study"
-import { useState,useEffect } from "react"
+import { useParams } from "next/navigation";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import { useSubjectDetail } from "@/hooks/useSubjectDetail";
+import { useAuth } from "@/hooks/useAuth";
+import SubjectOverview from "@/components/subjects/subjectPage/SubjectOverview";
+import TopicsSection from "@/components/subjects/topics/TopicsSection";
+import StudyPlanSection from "@/components/subjects/subjectPage/StudyPlanSection";
+import MaterialsSection from "@/components/subjects/materials/MaterialsSection";
+import FloatingSidebar from "@/components/subjects/layout/FloatingSidebar";
+import BackgroundEffects from "@/components/subjects/layout/BackgroundEffects";
+import LoadingScreen from "@/components/subjects/layout/LoadingScreen";
+import ErrorScreen from "@/components/subjects/layout/ErrorScreen";
+import TopNavigation from "@/components/subjects/layout/TopNavigation";
+import SectionHeader from "@/components/subjects/layout/SectionHeader";
+import ContentSection from "@/components/subjects/layout/ContentSection";
+import { BarChart3, Calendar, Target, Users, Zap } from "lucide-react";
+import { TopicStatus } from "@/types/study";
+import { useState, useEffect } from "react";
 const SubjectDetailPageContent = () => {
-  const { subjectId } = useParams<{ subjectId: string }>()
-  const id = Number(subjectId)
-  const { token } = useAuth()
-  const data = useSubjectDetail(id, token)
+  const { subjectId } = useParams<{ subjectId: string }>();
+  const id = Number(subjectId);
+  const { token } = useAuth();
+  const data = useSubjectDetail(id, token);
 
-  const [minLoading, setMinLoading] = useState(true)
+  const [minLoading, setMinLoading] = useState(true);
   useEffect(() => {
-    const timer = setTimeout(() => setMinLoading(false), 1000)
-    return () => clearTimeout(timer)
-  }, [])
+    const timer = setTimeout(() => setMinLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (data.loading || minLoading) {
     return (
@@ -36,9 +36,8 @@ const SubjectDetailPageContent = () => {
         <BackgroundEffects />
         <LoadingScreen />
       </div>
-    )
+    );
   }
-
 
   if (data.error || !data.subject) {
     return (
@@ -46,15 +45,18 @@ const SubjectDetailPageContent = () => {
         <BackgroundEffects />
         <ErrorScreen error={data.error} />
       </div>
-    )
+    );
   }
 
-  const { subject } = data
-  const totalTopics = subject.topics?.length || 0
+  const { subject } = data;
+  const totalTopics = subject.topics?.length || 0;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const completedTopics = subject.topics?.filter((t: any) => t.status === TopicStatus.COMPLETED).length || 0
-  const progressPercentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0
-  const isCompleted = progressPercentage === 100
+  const completedTopics =
+    subject.topics?.filter((t: any) => t.status === TopicStatus.COMPLETED)
+      .length || 0;
+  const progressPercentage =
+    totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+  const isCompleted = progressPercentage === 100;
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -112,28 +114,37 @@ const SubjectDetailPageContent = () => {
 
         {/* Study Plan Section */}
         <ContentSection id="plan">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-50/40 to-transparent dark:via-purple-900/20 rounded-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 via-indigo-50/20 to-blue-50/30 dark:from-purple-900/20 dark:via-indigo-900/10 dark:to-blue-900/20 rounded-3xl" />
           <SectionHeader
-            icon={<Users className="h-8 w-8 text-purple-600" />}
+            icon={<Calendar className="h-8 w-8 text-purple-600" />}
             badge="AI Študijný Plán"
             title="Inteligentný plán štúdia"
-            description="Nechajte AI vytvoriť personalizovaný študijný plán prispôsobený vašim potrebám a tempu"
+            description="Nechajte AI vytvoriť personalizovaný študijný plán prispôsobený vašim potrebám a tempu učenia"
             badgeColor="text-purple-600"
           />
-          <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl border border-white/20 shadow-2xl overflow-hidden">
-              <StudyPlanSection
-                studyPlan={data.studyPlan}
-                actionableTopics={data.actionableTopics}
-                loading={data.planLoading}
-                error={data.planError}
-                onGenerate={data.generatePlan}
-                onUpdateBlock={(id, upd) => data.updateBlock(id, upd as never)}
-              />
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
+            <div className="group relative backdrop-blur-xl bg-gradient-to-br from-white/20 via-white/10 to-white/5 dark:from-black/20 dark:via-black/10 dark:to-black/5 rounded-3xl border border-white/30 dark:border-white/10 shadow-2xl overflow-hidden hover:shadow-3xl transition-all duration-500">
+              {/* Gradient overlay for extra depth */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+              {/* Subtle animated border */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
+
+              <div className="relative z-10">
+                <StudyPlanSection
+                  studyPlan={data.studyPlan}
+                  actionableTopics={data.actionableTopics}
+                  loading={data.planLoading}
+                  error={data.planError}
+                  onGenerate={data.generatePlan}
+                  onUpdateBlock={(id, upd) =>
+                    data.updateBlock(id, upd as never)
+                  }
+                />
+              </div>
             </div>
           </div>
         </ContentSection>
-
         {/* Materials Section */}
         <ContentSection id="materials">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-50/40 to-transparent dark:via-amber-900/20 rounded-3xl" />
@@ -171,13 +182,13 @@ const SubjectDetailPageContent = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
 export default function SubjectDetailPage() {
   return (
     <ProtectedRoute>
       <SubjectDetailPageContent />
     </ProtectedRoute>
-  )
+  );
 }

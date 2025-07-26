@@ -15,7 +15,7 @@ import ErrorScreen from "@/components/subjects/layout/ErrorScreen";
 import TopNavigation from "@/components/subjects/layout/TopNavigation";
 import SectionHeader from "@/components/subjects/layout/SectionHeader";
 import ContentSection from "@/components/subjects/layout/ContentSection";
-import { BarChart3, Calendar, Target, Users, Zap } from "lucide-react";
+import { BarChart3, Calendar, Target, Zap } from "lucide-react";
 import { TopicStatus } from "@/types/study";
 import { useState, useEffect } from "react";
 const SubjectDetailPageContent = () => {
@@ -52,6 +52,7 @@ const SubjectDetailPageContent = () => {
   const totalTopics = subject.topics?.length || 0;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const completedTopics =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     subject.topics?.filter((t: any) => t.status === TopicStatus.COMPLETED)
       .length || 0;
   const progressPercentage =

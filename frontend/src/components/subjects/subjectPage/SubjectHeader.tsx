@@ -29,7 +29,7 @@ const SubjectHeader: FC<Props> = ({ error, subjectName, isLoading = false }) => 
             disabled={isLoading}
           >
             <ArrowLeft className="h-4 w-4" />
-            Dashboard
+            Dashboardka
           </Button>
 
           <div className="h-6 w-px bg-border" />
@@ -60,7 +60,7 @@ const SubjectHeader: FC<Props> = ({ error, subjectName, isLoading = false }) => 
             </Badge>
             <Badge variant="outline" className="gap-2 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
               <Sparkles className="h-3 w-3" />
-              Smart štúdium
+              Smart štúdium 
             </Badge>
           </div>
         )}

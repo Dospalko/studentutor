@@ -306,14 +306,14 @@ export default function StudyMaterialList({ materials: init, onDeleteMaterial, i
           {visible.map((m, i) => (
             <Card
               key={m.id}
-              className="group hover:shadow-xl border-2 border-muted/40 hover:border-primary/40 transition-all duration-300 hover:scale-[1.02] overflow-hidden"
+              className="group hover:shadow-xl border-2 border-muted/40 hover:border-primary/40 transition-all duration-300 hover:scale-[1] overflow-hidden"
               style={{ animationDelay: `${i * 100}ms` }}
             >
               <CardContent className="p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                   {/* Content */}
                   <div className="flex gap-4 flex-grow min-w-0">
-                    <div className="p-3 rounded-xl bg-primary/10 text-primary flex-shrink-0 shadow-lg">
+                    <div className="p-3 rounded-xl text-primary flex-shrink-0 ">
                       <FileText className="h-6 w-6" />
                     </div>
                     <div className="min-w-0 flex-1">

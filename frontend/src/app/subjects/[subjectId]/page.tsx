@@ -24,7 +24,7 @@ const SubjectDetailPageContent = () => {
   const { token } = useAuth();
   const data = useSubjectDetail(id, token);
 
-  const [minLoading, setMinLoading] = useState(true);
+  const [minLoading, setMinLoading] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setMinLoading(false), 1000);
     return () => clearTimeout(timer);

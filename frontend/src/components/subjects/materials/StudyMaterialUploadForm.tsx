@@ -168,7 +168,7 @@ export default function StudyMaterialUploadForm({ subjectId, onUploadSuccess, to
   }
 
   return (
-    <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-secondary/5 shadow-xl overflow-hidden relative">
+    <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 shadow-xl overflow-hidden relative">
       <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full blur-2xl opacity-60" />
 
       <CardHeader className="relative z-10 pb-6">

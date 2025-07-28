@@ -157,7 +157,7 @@ const SubjectDetailPageContent = () => {
             badgeColor="text-amber-600"
           />
           <div className="animate-in fade-in slide-in-from-right-8 duration-1000">
-            <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 rounded-3xl border border-white/20 shadow-2xl overflow-hidden">
+            <div className="backdrop-blur-xl bg-white/10 dark:bg-black/10 overflow-hidden">
               <MaterialsSection
                 subjectId={id}
                 token={token}

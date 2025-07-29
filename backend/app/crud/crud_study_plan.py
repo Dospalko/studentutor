@@ -114,7 +114,8 @@ def create_study_plan_with_blocks(
         )
         db.add(plan)
         todo = [t for t in subject.topics if t.status != TopicStatus.COMPLETED]
-        if not (use_ai and asyncio.get_event_loop().run_until_complete(_ai_fill(plan, subject))):
+        if not (use_ai and asyncio.run(_ai_fill(plan, subject))):
+
             _schedule_blocks(plan, sorted(todo, key=lambda x: x.ai_difficulty_score or 0.5), date.today() + timedelta(days=1))
         db.commit()
         db.refresh(plan)

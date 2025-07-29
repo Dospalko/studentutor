@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.db import models
 from app.db.enums import StudyPlanStatus, StudyBlockStatus, TopicStatus
 from app.crud.crud_subject import get_subject
-from ai_service.study_plan_generator import build_plan
+from app.services.ai_service.study_plan_generator import build_plan
 
 if TYPE_CHECKING:
     from app.schemas.study_plan import StudyPlanUpdate, StudyBlockUpdate

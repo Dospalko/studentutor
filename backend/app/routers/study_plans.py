@@ -21,43 +21,34 @@ router = APIRouter(
 @router.post("/", response_model=study_plan_schemas.StudyPlan, status_code=status.HTTP_201_CREATED)
 def generate_or_get_study_plan_for_subject(
     plan_create: study_plan_schemas.StudyPlanCreate,
-    force_regenerate: Optional[bool] = False,
+    force_regenerate: bool | None = False,
+    use_ai: bool = True,
     db: Session = Depends(get_db),
-    current_user: db_models.User = Depends(get_current_active_user)
+    current_user: db_models.User = Depends(get_current_active_user),
 ):
     subject = crud_subject.get_subject(db, subject_id=plan_create.subject_id, owner_id=current_user.id)
     if not subject:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subject not found or not owned by user")
+        raise HTTPException(status_code=404, detail="Subject not found")
 
-    # Volanie CRUD funkcie, ktorá vracia tuple: (plan_object, was_newly_created_flag)
-    plan_orm_object, was_newly_created_or_significantly_changed = crud_study_plan.create_study_plan_with_blocks(
+    plan, was_new = crud_study_plan.create_study_plan_with_blocks(
         db=db,
         subject_id=plan_create.subject_id,
         owner_id=current_user.id,
         name=plan_create.name,
-        force_regenerate=force_regenerate
+        force_regenerate=force_regenerate,
+        use_ai=use_ai,
     )
-    
-    if not plan_orm_object: # Ak CRUD funkcia vrátila None pre plán
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to process study plan.")
+    if not plan:
+        raise HTTPException(status_code=500, detail="Plan error")
 
-    # Kontrola achievementov na základe flagu z CRUD funkcie
-    if was_newly_created_or_significantly_changed:
-        # Tento achievement sa udeľuje, ak bol plán naozaj nový alebo pregenerovaný,
-        # alebo ak sa do existujúceho pridali nové témy.
+    if was_new:
         check_and_grant_achievements(db, current_user, AchievementCriteriaType.FIRST_PLAN_GENERATED)
-        # Pre PLANS_GENERATED_OR_UPDATED (ak by si sledoval počet) by sa tu tiež kontrolovalo.
-        # check_and_grant_achievements(db, current_user, AchievementCriteriaType.PLANS_GENERATED_OR_UPDATED)
-            
-    # Doplnenie subject_name do ORM objektu pred konverziou na Pydantic schému
-    # CRUD funkcia get_study_plan (ktorú volá create_study_plan_with_blocks na konci)
-    # by už mala načítať subject, takže plan_orm_object.subject by malo existovať.
-    if hasattr(plan_orm_object, 'subject') and plan_orm_object.subject:
-        setattr(plan_orm_object, 'subject_name', plan_orm_object.subject.name)
-    elif subject: # Fallback, ak by náhodou nebol subject načítaný s plánom
-         setattr(plan_orm_object, 'subject_name', subject.name)
-        
-    return plan_orm_object # FastAPI skonvertuje tento ORM objekt na schému schemas.StudyPlan
+
+    if plan.subject:
+        setattr(plan, "subject_name", plan.subject.name)
+    else:
+        setattr(plan, "subject_name", subject.name)
+    return plan
 
 @router.put("/blocks/{block_id}", response_model=study_plan_schemas.StudyBlock)
 def update_study_block_route(

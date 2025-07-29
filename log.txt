@@ -1,0 +1,100 @@
+1b1271d (HEAD -> main, origin/main) feat: background blur fix
+508e5b0 feat: bordr deletiong
+750aebd feat: commenting unused
+20d5e0a feat: making possible to route back to homepage if logged
+c0b21ac feat: updating navbar for homepage and etc.
+941dc7b fix: fixing the errs in page
+30259bd feat: subject redesing almost done and perfect
+20b39e3 feat: removing unused header
+f00c417 feat: study block detail dialog redesing
+0e4dd96 feat: studycalender view redesing
+fc6a406 feat: study plan section desing
+53800b0 feaT: fixing the details in mat section
+840e0d0 feat: whole list section redesing
+0bf80a4 feat: material list desing update
+e255d68 feat: material upload form update of desing
+a43b909 feat: dialog new desing for topic add
+17de55c feat: topiclistitem updated asweel
+024aab8 feat: updating the teme theme
+83a9296 Fix:fixing unused impr
+2cc6c68 feat: fixing errs
+617d6b0 feat: fixing overiwev
+d0b7daa feat: real sstats working
+61df62e Feat: header update
+b991422 Feat: added new desing of component in top bar
+acd28ac feat: progress bar added to overview
+fb7a200 feat: section header update
+44c1f15 feat: updating shadow of bg
+70dcc54 feat: commnet update
+01ffdf9 feat: commne tdel
+1123b9b feat: forcing loading for 1s
+633a24b feat: simple desing impl
+53ea6e9 fix: typescript eslint fix
+cebf7c1 feat: background used and fixed
+800ec62 feat: fixing zoom for the things
+7474122 feast; layout implemented into main page of subject
+fca9cf5 feat: top naviagion comp
+e0ec514 feat; header section for subject comp
+b3f02b4 feat: loading screen
+ab6cad3 Feat: error screen
+6ecd4da Feat: making page.tsx more volatile by creating it into comps
+0405d7e Feat: making backround more volatile
+98cb5e5 feat: removed unused dost on sidebar
+e9f76b7 feat: cetnering
+71620c6 fix: disabling using of any for icons
+6c77569 feaT: beta verison implekent of redesing to subject
+63d06fa feat: added floating sidebar comp
+f942e07 Feat: layout new changed perfect
+c3f290d feast: chaning subject layout
+87aef5e FeasT: readme update
+e9c09fd feat: removing unused comp
+e0ba2df fix: make deletion form makefile
+6aef5c5 feat: make
+a023503 feaT: userStats redesing in profile
+568af20 feat: statscharts redesing
+b0a0f49 feat: impl done to stats
+e542459 feat: inmplementing to stats
+57bf836 feat: adding component for charts of stats
+980ada0 featnfix: unused import and incosistency
+32841be feat: deashboard rdesin finished
+0dc635a feat: grid for subjects
+906e4e2 Feat: subject card compo added
+527ba3c feat: Stat card comp
+ff4d771 feat: loading state comp dashboard
+0f3defd feat: state fotr emtpy state
+daf7e77 feat: dashboard hero added
+1f0a466 feat: subject creation dialog comp
+457b7f4 feat: updating dashbaord to select to components for redesing
+ff065d5 feat: profile page layout updated
+de4612a feat: user account redesing
+0eeb30e feat: achievments showcase redesing
+bd9062b feat: added statistic desing update
+ad25014 feat: update of visual of tracking progress acheiv
+08a3b5a feat: working alot more achievments tracking
+61d874f fix: fixing imports
+c75c0fa feat: updating the component for more stats
+8553fd0 feat: added to service more achievments stats
+51a1fa7 feat: more achievments for user stats added in route be
+4b81e8e feat: deleteting unnecessary route
+496102c feaT: added to main.py route
+2c6cacd Feat: new route separate form users for stats
+08b1daf Feat: added component to profile page
+1f515f8 feat: user stats component
+595f805 feat: adding endpoint to material service
+21fc483 feat: adding user stats just for matersials
+949d584 feat: comments upgrade
+05c6065 feat: title fixed for dashboard
+8a35133 fskust
+4e0e193 feat: editing tags and summary working now
+dc7d9b9 feat: new schema for summ
+7311480 fix: cycling of get for ai summ fixed
+226a096 feat: pdf viewer FE for updating teags and summary
+c58a540 feat: patch material route for FE added
+b2e6e7c feat: route update for edit sm
+f8f5ac8 feat: schema fdor updating summary
+c200dfc feat: gitignore updatee
+9b8086a Feat: data working now filtering tags all good
+04177b1 Feat: filter refreshing solo
+a2acea8 feat; unused comp
+89dc737 feat: tag filtering working now
+201c42f feat: comp for filetirng

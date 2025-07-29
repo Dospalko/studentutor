@@ -8,7 +8,8 @@ from app.db import models
 from app.db.enums import StudyPlanStatus, StudyBlockStatus, TopicStatus
 from app.crud.crud_subject import get_subject
 from app.services.ai_service.study_plan_generator import build_plan
-
+from datetime import datetime, timedelta, date, time as dt_time
+# ...
 if TYPE_CHECKING:
     from app.schemas.study_plan import StudyPlanUpdate, StudyBlockUpdate
 
@@ -40,8 +41,19 @@ def get_active_study_plan_for_subject(db: Session, subject_id: int, owner_id: in
         .first()
     )
 
-def _schedule_blocks(plan: models.StudyPlan, topics: list[models.Topic], start: date, *, daily_minutes: int = 120, include_weekends: bool = False, day_start_hour: int = 17) -> None:
-    working_days = set(range(7)) if include_weekends else set(range(0,5))
+def _schedule_blocks(
+    plan: models.StudyPlan,
+    topics: list[models.Topic],
+    start: date,
+    *,
+    daily_minutes: int = 120,
+    include_weekends: bool = False,
+    day_start_hour: int = 17,
+) -> None:
+    # guardy
+    day_start_hour = max(0, min(23, int(day_start_hour)))
+
+    working_days = set(range(7)) if include_weekends else set(range(0, 5))
     def is_work(d: date) -> bool: return d.weekday() in working_days
     def next_work(d: date) -> date:
         while not is_work(d):
@@ -50,16 +62,21 @@ def _schedule_blocks(plan: models.StudyPlan, topics: list[models.Topic], start: 
 
     d = next_work(start)
     used = 0
-    cur_time = datetime.combine(d, time=day_start_hour)
+    cur_time = datetime.combine(d, dt_time(hour=day_start_hour))  # ← FIX
+
+    # napr. 25-min sešny a 10-min pauzy (ak to tak máš)
+    SESSION_MIN = 25
+    BREAK_MIN = 10
+
     for t in sorted(topics, key=lambda x: float(x.ai_difficulty_score or 0.5), reverse=True):
         remaining = int(t.ai_estimated_duration or 60)
         target = 50
         while remaining > 0:
-            if used + 25 > daily_minutes:
-                # nový deň
+            if used + SESSION_MIN > daily_minutes:
                 d = next_work(d + timedelta(days=1))
                 used = 0
-                cur_time = datetime.combine(d, time=day_start_hour)
+                cur_time = datetime.combine(d, dt_time(hour=day_start_hour))  # ← FIX
+
             sess = min(target, remaining, daily_minutes - used)
             plan.study_blocks.append(
                 models.StudyBlock(
@@ -71,8 +88,7 @@ def _schedule_blocks(plan: models.StudyPlan, topics: list[models.Topic], start: 
             )
             remaining -= sess
             used += sess
-            cur_time += timedelta(minutes=sess + 10)
-
+            cur_time += timedelta(minutes=sess + BREAK_MIN)
 
 async def _ai_fill(plan: models.StudyPlan, subject: models.Subject, daily_minutes: int = 120) -> bool:
     topics_dto = [

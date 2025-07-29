@@ -40,18 +40,39 @@ def get_active_study_plan_for_subject(db: Session, subject_id: int, owner_id: in
         .first()
     )
 
-def _schedule_blocks(plan: models.StudyPlan, topics: list[models.Topic], start: date) -> None:
-    d = start
-    for t in topics:
-        plan.study_blocks.append(
-            models.StudyBlock(
-                scheduled_at=datetime.combine(d, datetime.min.time()),
-                duration_minutes=t.ai_estimated_duration or 60,
-                status=StudyBlockStatus.PLANNED,
-                topic_id=t.id,
+def _schedule_blocks(plan: models.StudyPlan, topics: list[models.Topic], start: date, *, daily_minutes: int = 120, include_weekends: bool = False, day_start_hour: int = 17) -> None:
+    working_days = set(range(7)) if include_weekends else set(range(0,5))
+    def is_work(d: date) -> bool: return d.weekday() in working_days
+    def next_work(d: date) -> date:
+        while not is_work(d):
+            d += timedelta(days=1)
+        return d
+
+    d = next_work(start)
+    used = 0
+    cur_time = datetime.combine(d, time=day_start_hour)
+    for t in sorted(topics, key=lambda x: float(x.ai_difficulty_score or 0.5), reverse=True):
+        remaining = int(t.ai_estimated_duration or 60)
+        target = 50
+        while remaining > 0:
+            if used + 25 > daily_minutes:
+                # nový deň
+                d = next_work(d + timedelta(days=1))
+                used = 0
+                cur_time = datetime.combine(d, time=day_start_hour)
+            sess = min(target, remaining, daily_minutes - used)
+            plan.study_blocks.append(
+                models.StudyBlock(
+                    scheduled_at=cur_time,
+                    duration_minutes=sess,
+                    status=StudyBlockStatus.PLANNED,
+                    topic_id=t.id,
+                )
             )
-        )
-        d += timedelta(days=2 if (t.ai_difficulty_score or 0.5) > 0.7 else 1)
+            remaining -= sess
+            used += sess
+            cur_time += timedelta(minutes=sess + 10)
+
 
 async def _ai_fill(plan: models.StudyPlan, subject: models.Subject, daily_minutes: int = 120) -> bool:
     topics_dto = [

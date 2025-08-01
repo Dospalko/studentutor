@@ -1,10 +1,10 @@
-# 🎓 Studentutor
+#Studentutor
 
 **Studentutor** je moderná webová aplikácia určená na **správu študijného procesu** — vytváranie predmetov, tém, plánovanie štúdia a sledovanie pokroku študenta. Projekt je postavený ako fullstacková aplikácia s rozdeleným frontendom a backendom, kontajnerizovaný pomocou Docker Compose.
 
 ---
 
-## 🚀 Funkcionality
+## Funkcionality
 
 - 🧑‍🏫 Správa používateľov a autentifikácia (JWT)
 - 📚 Vytváranie a správa **predmetov** a **tém**
@@ -15,9 +15,9 @@
 
 ---
 
-## 🧱 Použité technológie
+##  Použité technológie
 
-### 🔙 Backend (Python):
+### Backend (Python):
 - [FastAPI](https://fastapi.tiangolo.com/)
 - SQLAlchemy (ORM)
 - SQLite / PostgreSQL (v produkcii)
@@ -26,7 +26,7 @@
 - `python-jose` (JWT)
 - Docker
 
-### 🔜 Frontend (JavaScript/TypeScript):
+###  Frontend (JavaScript/TypeScript):
 - [Next.js](https://nextjs.org/)
 - React
 - Shadcn/ui (komponentová knižnica)
@@ -34,18 +34,18 @@
 - Zustand (state management)
 - Axios
 
-### 🐳 DevOps:
+### DevOps:
 - Docker + Docker Compose
 - Volumes pre hot-reload
 - Makefile pre jednoduchý vývoj/produkciu
 
 ---
 
-## 🧑‍💻 Lokálny vývoj
+## Lokálny vývoj
 
-> 🔁 Všetko beží v Docker kontejnery s automatickým reloadom pre frontend aj backend.
+> Všetko beží v Docker kontejnery s automatickým reloadom pre frontend aj backend.
 
-### ✅ Spustenie vývojového režimu:
+### Spustenie vývojového režimu:
 
 ```bash
 make dev

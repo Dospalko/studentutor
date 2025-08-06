@@ -16,8 +16,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { TimePicker } from "@/components/ui/time-picker";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { 
-    CheckCircle2, Loader2, Zap, XCircle, 
-    BookOpen, Target,
+    Calendar as CalendarIcon, CheckCircle2, Loader2, Zap, XCircle, 
+    BookOpen, Target
 } from "lucide-react";
 
 const formatEnumValue = (val?: string | null) =>
@@ -41,7 +41,7 @@ interface StudyBlockDetailDialogProps {
   onUpdateNotes: (blockId: number, notes: string | null) => Promise<void>;
   onUpdateSchedule: (blockId: number, newStart: Date, newEnd?: Date) => Promise<void>;
   onAssignMaterial: (blockId: number, materialId: number | null) => Promise<void>;
-  onGenerateQuestions: (topicId: number) => Promise<unknown[]>; // Predpokladáme, že vracia pole otázok
+  onGenerateQuestions: (topicId: number) => Promise<unknown[]>;
   isUpdating: boolean;
 }
 
@@ -145,23 +145,45 @@ export default function StudyBlockDetailDialog({
                 <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3">Plánovanie</h3>
                 <div className="space-y-2">
                     <Popover>
-                        <PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal">{tempStart ? tempStart.toLocaleString("sk-SK", {dateStyle: "medium", timeStyle: "short"}) : <span>Vyberte dátum a čas</span>}</Button></PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={tempStart ?? undefined} onSelect={(date) => setTempStart(date ? new Date(date.setHours(tempStart?.getHours() ?? 0, tempStart?.getMinutes() ?? 0)) : null)} initialFocus /><div className="p-3 border-t border-border"><TimePicker date={tempStart} setDate={setTempStart} /></div></PopoverContent>
+                        <PopoverTrigger asChild>
+                          <Button id="block-schedule-date" variant="outline" className="w-full justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {tempStart ? tempStart.toLocaleString("sk-SK", {dateStyle: "medium", timeStyle: "short"}) : <span>Vyberte dátum a čas</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={tempStart ?? undefined}
+                            onSelect={(date) => {
+                                const newDate = date ?? new Date();
+                                const oldTime = tempStart ?? new Date();
+                                newDate.setHours(oldTime.getHours());
+                                newDate.setMinutes(oldTime.getMinutes());
+                                setTempStart(newDate);
+                            }}
+                            initialFocus
+                          />
+                          <div className="p-3 border-t border-border">
+                            <TimePicker value={tempStart ?? undefined} onChange={setTempStart} />
+                          </div>
+                        </PopoverContent>
                     </Popover>
                     <Button
                       size="sm"
                       variant="secondary"
                       onClick={handleScheduleSave}
                       disabled={
-                        Boolean(isUpdating) ||
                         Boolean(
-                          block.scheduled_at &&
-                          tempStart &&
-                          new Date(block.scheduled_at).getTime() === tempStart.getTime()
+                          isUpdating ||
+                          !tempStart ||
+                          (block.scheduled_at &&
+                            new Date(block.scheduled_at).getTime() === (tempStart?.getTime() ?? 0))
                         )
                       }
                     >
-                        {isUpdating && (block.scheduled_at && tempStart && new Date(block.scheduled_at).getTime() !== tempStart.getTime()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Uložiť Plán
+                        {isUpdating && (block.scheduled_at && new Date(block.scheduled_at).getTime() !== tempStart?.getTime()) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Uložiť Dátum/Čas
                     </Button>
                 </div>
             </div>
@@ -186,20 +208,12 @@ export default function StudyBlockDetailDialog({
                     )}
                     {(subjectMaterials.length > 0 || selectedMaterialId !== "none") && (
                     <Button size="sm" variant="secondary" onClick={handleAssignMaterial} disabled={isUpdating || selectedMaterialId === (block.material_id ? String(block.material_id) : "none")}>
-                        {isUpdating && selectedMaterialId !== (block.material_id ? String(block.material_id) : "none") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Uložiť Materiál
+                        {isUpdating && selectedMaterialId !== (block.material_id ? String(block.material_id) : "none") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Uložiť Materiál
                     </Button>
                     )}
                 </div>
             </div>
-
-            {/* TODO: Placeholder pre generovanie otázok */}
-            {/* <Separator />
-            <div>
-              <Button variant="outline" className="w-full" onClick={() => onGenerateQuestions(block.topic.id)}>
-                <Sparkles className="mr-2 h-4 w-4" /> Vygenerovať Cvičné Otázky
-              </Button>
-            </div> */}
-
           </div>
 
           <div className="lg:col-span-2 space-y-3 flex flex-col">

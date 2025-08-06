@@ -1,9 +1,36 @@
+
+/**
+ * studyMaterialService.ts
+ *
+ * Service functions for managing study materials in Studentutor frontend.
+ * Provides CRUD operations, file download helpers, AI summary/tag generation, and user stats.
+ *
+ * Usage:
+ *   import { uploadStudyMaterial, getStudyMaterialsForSubject, ... } from '@/services/studyMaterialService';
+ */
+
 import { MaterialTypeEnum } from "@/types/study";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-/* ---------------- Typy -------------------------------------------------- */
+/* ---------------- Types & Interfaces ------------------------------------- */
+/**
+ * StudyMaterial represents a single uploaded study material (e.g. PDF, notes).
+ * - id: unique identifier
+ * - file_name: original file name
+ * - file_type: MIME type (optional)
+ * - file_size: size in bytes (optional)
+ * - uploaded_at: ISO string of upload date
+ * - title: user-defined title (optional)
+ * - description: user-defined description (optional)
+ * - material_type: type/category (optional)
+ * - subject_id: related subject
+ * - owner_id: uploader's user id
+ * - extracted_text: extracted text (optional)
+ * - tags: array of tags (optional)
+ * - summary: AI-generated summary (optional)
+ */
 export interface StudyMaterial {
   id: number;
   file_name: string;
@@ -20,12 +47,18 @@ export interface StudyMaterial {
   summary?: string | null;
 }
 
+/**
+ * StudyMaterialMetadata is used for uploading or updating material meta info.
+ */
 export interface StudyMaterialMetadata {
   title?: string | null;
   description?: string | null;
   material_type?: MaterialTypeEnum | null;
 }
 
+/**
+ * MaterialSummaryResponse represents the response from AI summary endpoint.
+ */
 export interface MaterialSummaryResponse {
   material_id: number;
   file_name: string;
@@ -34,6 +67,9 @@ export interface MaterialSummaryResponse {
   word_count?: number | null;
 }
 
+/**
+ * UserStats represents statistics for the current user (materials, subjects, blocks, achievements).
+ */
 export interface UserStats {
   materials: {
     total: number;
@@ -55,7 +91,14 @@ export interface UserStats {
   achievements_unlocked: number;
 }
 
-/* ---------------- Helper ------------------------------------------------ */
+/* ---------------- Helper ------------------------------------------------- */
+/**
+ * Helper for authenticated JSON fetch requests.
+ * Throws error if response is not ok.
+ * @param url API endpoint (relative)
+ * @param token JWT token
+ * @param init Optional fetch options
+ */
 async function fetchJson<T>(
   url: string,
   token: string,
@@ -78,7 +121,15 @@ async function fetchJson<T>(
   return res.json();
 }
 
-/* ---------------- CRUD upload / list / delete -------------------------- */
+/* ---------------- CRUD: upload / list / delete -------------------------- */
+/**
+ * Upload a new study material file for a subject.
+ * @param subjectId Subject ID
+ * @param file File to upload
+ * @param meta Metadata (title, description, type)
+ * @param token JWT token
+ * @returns Promise<StudyMaterial> newly created material
+ */
 export const uploadStudyMaterial = async (
   subjectId: number,
   file: File,
@@ -97,10 +148,17 @@ export const uploadStudyMaterial = async (
   });
 };
 
+/**
+ * Get all study materials for a subject (optionally filtered by tags).
+ * @param subjectId Subject ID
+ * @param token JWT token
+ * @param tags Optional array of tags to filter
+ * @returns Promise<StudyMaterial[]>
+ */
 export const getStudyMaterialsForSubject = (
   subjectId: number,
   token: string,
-  tags?: string[]           //  <-- NOVÉ
+  tags?: string[]
 ) => {
   const query =
     tags && tags.length > 0
@@ -112,10 +170,22 @@ export const getStudyMaterialsForSubject = (
   );
 };
 
+/**
+ * Delete a study material by ID.
+ * @param id Material ID
+ * @param token JWT token
+ * @returns Promise<StudyMaterial> deleted material
+ */
 export const deleteStudyMaterial = (id: number, token: string) =>
   fetchJson<StudyMaterial>(`/materials/${id}`, token, { method: "DELETE" });
 
-/* ---------------- Download helpers ------------------------------------- */
+/* ---------------- Download helpers -------------------------------------- */
+/**
+ * Download a protected file as a blob URL (for preview/download).
+ * @param id Material ID
+ * @param token JWT token
+ * @returns Promise<{ blobUrl, fileType }>
+ */
 export const fetchProtectedFileAsBlobUrl = async (
   id: number,
   token: string
@@ -131,6 +201,12 @@ export const fetchProtectedFileAsBlobUrl = async (
   };
 };
 
+/**
+ * Download a protected file and trigger browser download.
+ * @param id Material ID
+ * @param filename Filename to save as
+ * @param token JWT token
+ */
 export const downloadProtectedFile = async (
   id: number,
   filename: string,
@@ -146,12 +222,24 @@ export const downloadProtectedFile = async (
   URL.revokeObjectURL(blobUrl);
 };
 
-/* ---------------- AI – summary ----------------------------------------- */
+/* ---------------- AI – summary ------------------------------------------ */
+/**
+ * Fetch AI-generated summary for a material (if exists).
+ * @param id Material ID
+ * @param token JWT token
+ * @returns Promise<MaterialSummaryResponse>
+ */
 export const fetchMaterialSummary = (
   id: number,
   token: string
 ) => fetchJson<MaterialSummaryResponse>(`/materials/${id}/summary`, token);
 
+/**
+ * Force-generate a new AI summary for a material.
+ * @param id Material ID
+ * @param token JWT token
+ * @returns Promise<MaterialSummaryResponse>
+ */
 export const generateMaterialSummary = (
   id: number,
   token: string
@@ -161,10 +249,22 @@ export const generateMaterialSummary = (
     token
   );
 
-/* ---------------- AI – tags -------------------------------------------- */
+/* ---------------- AI – tags --------------------------------------------- */
+/**
+ * Fetch tags for a material (AI or user-generated).
+ * @param id Material ID
+ * @param token JWT token
+ * @returns Promise<string[]>
+ */
 export const fetchMaterialTags = (id: number, token: string) =>
   fetchJson<string[]>(`/materials/${id}/tags`, token);
 
+/**
+ * Force-generate new AI tags for a material.
+ * @param id Material ID
+ * @param token JWT token
+ * @returns Promise<string[]>
+ */
 export const generateMaterialTags = (id: number, token: string) =>
   fetchJson<string[]>(
     `/materials/${id}/generate-tags?force=true`,
@@ -172,12 +272,22 @@ export const generateMaterialTags = (id: number, token: string) =>
     { method: "POST" }
   );
 
-/* ---------------- Patch material --------------------------------------- */
+/* ---------------- Patch material ---------------------------------------- */
+/**
+ * Payload for patching a material (tags, summary, ...).
+ */
 export interface PatchMaterialPayload {
   tags?: string[];
   ai_summary?: string;
 }
 
+/**
+ * Patch a material (update tags, summary, etc).
+ * @param id Material ID
+ * @param payload PatchMaterialPayload
+ * @param token JWT token
+ * @returns Promise<StudyMaterial>
+ */
 export const patchMaterial = (
   id: number,
   payload: PatchMaterialPayload,
@@ -195,6 +305,12 @@ export const patchMaterial = (
     }
   );
 
-/* ---------------- User stats ------------------------------------------- */
+/* ---------------- User stats -------------------------------------------- */
+
+/**
+ * Fetch statistics for the current user (materials, subjects, blocks, achievements).
+ * @param token JWT token
+ * @returns Promise<UserStats>
+ */
 export const fetchUserStats = (token: string): Promise<UserStats> =>
   fetchJson<UserStats>("/users/me/stats", token);

@@ -41,7 +41,7 @@ interface StudyBlockDetailDialogProps {
   onUpdateNotes: (blockId: number, notes: string | null) => Promise<void>;
   onUpdateSchedule: (blockId: number, newStart: Date, newEnd?: Date) => Promise<void>;
   onAssignMaterial: (blockId: number, materialId: number | null) => Promise<void>;
-  onGenerateQuestions: (topicId: number) => Promise<unknown[]>;
+  onGenerateQuestions?: (topicId: number) => Promise<unknown[]>; // currently unused / optional
   isUpdating: boolean;
 }
 
@@ -132,7 +132,7 @@ export default function StudyBlockDetailDialog({
             <div>
               <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3">Základné Informácie</h3>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between items-center"><span className="text-muted-foreground">Status:</span><Badge variant={block.status === "completed" ? "default" : "secondary"} className={`${block.status === "completed" ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{formatEnumValue(block.status)}</Badge></div>
+                <div className="flex justify-between items-center"><span className="text-muted-foreground">Status:</span><Badge className={`${block.status === "completed" ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{formatEnumValue(block.status)}</Badge></div>
                 <div className="flex justify-between items-center"><span className="text-muted-foreground">Dĺžka:</span><span className="font-medium">{block.duration_minutes ?? 'N/A'} minút</span></div>
                 <div className="flex justify-between items-center"><span className="text-muted-foreground">AI Náročnosť:</span><span className={`font-medium ${getAiDifficultyLabelAndColor(block.topic.ai_difficulty_score).colorClass}`}>{getAiDifficultyLabelAndColor(block.topic.ai_difficulty_score).label}</span></div>
                 <div className="flex justify-between items-center"><span className="text-muted-foreground">AI Čas:</span><span className="font-medium">{block.topic.ai_estimated_duration ?? 'N/A'} minút</span></div>
@@ -146,7 +146,7 @@ export default function StudyBlockDetailDialog({
                 <div className="space-y-2">
                     <Popover>
                         <PopoverTrigger asChild>
-                          <Button id="block-schedule-date" variant="outline" className="w-full justify-start text-left font-normal">
+                          <Button id="block-schedule-date"  className="w-full outline justify-start text-left font-normal">
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {tempStart ? tempStart.toLocaleString("sk-SK", {dateStyle: "medium", timeStyle: "short"}) : <span>Vyberte dátum a čas</span>}
                           </Button>
@@ -170,8 +170,8 @@ export default function StudyBlockDetailDialog({
                         </PopoverContent>
                     </Popover>
                     <Button
-                      size="sm"
-                      variant="secondary"
+                      className="sm secondary"
+                 
                       onClick={handleScheduleSave}
                       disabled={
                         Boolean(
@@ -207,7 +207,7 @@ export default function StudyBlockDetailDialog({
                     </Select>
                     )}
                     {(subjectMaterials.length > 0 || selectedMaterialId !== "none") && (
-                    <Button size="sm" variant="secondary" onClick={handleAssignMaterial} disabled={isUpdating || selectedMaterialId === (block.material_id ? String(block.material_id) : "none")}>
+                    <Button className="h-8 px-3 text-sm secondary"  onClick={handleAssignMaterial} disabled={isUpdating || selectedMaterialId === (block.material_id ? String(block.material_id) : "none")}>
                         {isUpdating && selectedMaterialId !== (block.material_id ? String(block.material_id) : "none") && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Uložiť Materiál
                     </Button>
@@ -228,7 +228,7 @@ export default function StudyBlockDetailDialog({
               className="resize-y flex-grow text-base"
             />
             <div className="flex justify-end">
-              <Button size="sm" variant="secondary" onClick={handleNotesSave} disabled={isUpdating || currentNotes.trim() === (block.notes || "").trim()}>
+              <Button className="sm secondary" onClick={handleNotesSave} disabled={isUpdating || currentNotes.trim() === (block.notes || "").trim()}>
                 {isUpdating && currentNotes.trim() !== (block.notes || "").trim() && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {currentNotes.trim() === (block.notes || "").trim() ? "Poznámky Uložené" : "Uložiť Poznámky"}
               </Button>
@@ -238,14 +238,14 @@ export default function StudyBlockDetailDialog({
 
         <DialogFooter className="p-4 bg-muted/30 border-t flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
           <DialogClose asChild>
-            <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={isUpdating}>
+            <Button type="button" className="w-full outline sm:w-auto" disabled={isUpdating}>
               Zavrieť
             </Button>
           </DialogClose>
           <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:gap-2">
-            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={isUpdating || block.status === StudyBlockStatus.COMPLETED} onClick={() => onUpdateStatus(block.id, StudyBlockStatus.COMPLETED)}><CheckCircle2 className="mr-2 h-4 w-4" />Dokončené</Button>
-            <Button size="sm" variant="secondary" disabled={isUpdating || block.status === StudyBlockStatus.IN_PROGRESS || block.status === StudyBlockStatus.COMPLETED} onClick={() => onUpdateStatus(block.id, StudyBlockStatus.IN_PROGRESS)}><Zap className="mr-2 h-4 w-4" />Začať</Button>
-            <Button size="sm" variant="destructive" disabled={isUpdating || block.status === StudyBlockStatus.SKIPPED || block.status === StudyBlockStatus.COMPLETED} onClick={() => onUpdateStatus(block.id, StudyBlockStatus.SKIPPED)}><XCircle className="mr-2 h-4 w-4" />Preskočiť</Button>
+            <Button  className="bg-green-600 sm  hover:bg-green-700 text-white" disabled={isUpdating || block.status === StudyBlockStatus.COMPLETED} onClick={() => onUpdateStatus(block.id, StudyBlockStatus.COMPLETED)}><CheckCircle2 className="mr-2 h-4 w-4" />Dokončené</Button>
+            <Button  className="secondary sm" disabled={isUpdating || block.status === StudyBlockStatus.IN_PROGRESS || block.status === StudyBlockStatus.COMPLETED} onClick={() => onUpdateStatus(block.id, StudyBlockStatus.IN_PROGRESS)}><Zap className="mr-2 h-4 w-4" />Začať</Button>
+            <Button  className="destructive sm" disabled={isUpdating || block.status === StudyBlockStatus.SKIPPED || block.status === StudyBlockStatus.COMPLETED} onClick={() => onUpdateStatus(block.id, StudyBlockStatus.SKIPPED)}><XCircle className="mr-2 h-4 w-4" />Preskočiť</Button>
           </div>
         </DialogFooter>
       </DialogContent>

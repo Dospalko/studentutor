@@ -32,3 +32,4 @@ openai
 fastapi_mail
 PyPDF2 
 python-docx
+psycopg2-binary==2.9.9

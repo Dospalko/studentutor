@@ -139,4 +139,3 @@ docker-compose down -v
 ```
 
 ---
-Ak chceš doplniť migrácie alebo CI, napíš.
